@@ -3588,12 +3588,68 @@ local function HideForOtherTab(book, tabID)
 	HideLooseChrome()
 end
 
+local function WatchTabButton(book, button, tabID, watchedButtons)
+	if type(button) ~= "table" or watchedButtons[button] then
+		return
+	end
+	watchedButtons[button] = true
+	if type(button.SetTabSelected) == "function" then
+		hooksecurefunc(button, "SetTabSelected", function(_, isSelected)
+			if isSelected and tabID ~= LB.tabID then
+				HideForOtherTab(book, tabID)
+			elseif not isSelected and tabID == LB.tabID then
+				HideForOtherTab(book, nil)
+			end
+		end)
+	end
+	if type(button.SetScript) ~= "function" then
+		return
+	end
+	local setScript = button.SetScript
+	local function clickThenHide(handler)
+		return function(...)
+			handler(...)
+			if tabID ~= LB.tabID then
+				HideForOtherTab(book, tabID)
+			end
+		end
+	end
+	button.SetScript = function(self, script, handler)
+		if script == "OnClick" and type(handler) == "function" then
+			return setScript(self, script, clickThenHide(handler))
+		end
+		return setScript(self, script, handler)
+	end
+	if type(button.GetScript) == "function" then
+		local current = button:GetScript("OnClick")
+		if type(current) == "function" then
+			button:SetScript("OnClick", current)
+		end
+	end
+end
+
+local function WatchTabButtons(book, tabs, watchedButtons)
+	if not tabs or type(tabs.GetTabButton) ~= "function" then
+		return
+	end
+	local id = 1
+	while true do
+		local button = tabs:GetTabButton(id)
+		if not button then
+			break
+		end
+		WatchTabButton(book, button, id, watchedButtons)
+		id = id + 1
+	end
+end
+
 local function WatchTabSelection(book)
 	local tabs = book.CategoryTabSystem
 	if not tabs or LB.tabWatched or type(hooksecurefunc) ~= "function" then
 		return
 	end
 	LB.tabWatched = true
+	local watchedButtons = {}
 	local function follow(_, tabID)
 		HideForOtherTab(book, tabID)
 	end
@@ -3603,6 +3659,12 @@ local function WatchTabSelection(book)
 	if type(tabs.SetTabVisuallySelected) == "function" then
 		hooksecurefunc(tabs, "SetTabVisuallySelected", follow)
 	end
+	if type(tabs.AddTab) == "function" then
+		hooksecurefunc(tabs, "AddTab", function(self)
+			WatchTabButtons(book, self, watchedButtons)
+		end)
+	end
+	WatchTabButtons(book, tabs, watchedButtons)
 end
 
 local function BindCatalogTab(book, tabID)

@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Leaving the Loose Buttons spellbook tab for another addon tab hides the catalog, section headers, and parchment ribbon.
 - Escape ends bind mode without tainting the game menu, so stopping a cast still works.
 - Alt- and Shift-right-click remove no longer casts the button, and drops skip hidden action bars.
 - The spellbook ribbon's right edge lines up with the General divider.
