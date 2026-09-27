@@ -1076,11 +1076,18 @@ keys:SetScript("OnUpdate", function(self)
 	end
 end)
 
+local endBindButton = CreateFrame("Button", "LooseButtonsEndBind")
+
 local function EndBind()
 	LB.binding = nil
 	keys:Hide()
+	if type(ClearOverrideBindings) == "function" then
+		ClearOverrideBindings(endBindButton)
+	end
 	RestoreButtons()
 end
+
+endBindButton:SetScript("OnClick", EndBind)
 
 local function ToggleBind()
 	if LB.binding then
@@ -1092,6 +1099,9 @@ local function ToggleBind()
 		return
 	end
 	LB.binding = true
+	if type(SetOverrideBindingClick) == "function" then
+		SetOverrideBindingClick(endBindButton, true, "ESCAPE", endBindButton:GetName(), "LeftButton")
+	end
 	SyncQuickKeybind(true)
 	Say("Hover a loose button and press a key. Escape clears it. Click Edit or press Escape elsewhere to finish.")
 end
@@ -2998,34 +3008,11 @@ local function OpenNewLayout()
 	Say("Enter a name.")
 end
 
-local DISMISS_FRAMES = { "LooseButtonsShare", "LooseButtonsImport", "LooseButtonsHelp" }
-
-local function HideOpenDialogs()
-	local closed = false
-	if LB.binding then
-		EndBind()
-		closed = true
-	end
-	local i
-	for i = 1, #DISMISS_FRAMES do
-		local frame = _G[DISMISS_FRAMES[i]]
-		if frame and frame:IsShown() then
-			frame:Hide()
-			closed = true
-		end
-	end
-	return closed
-end
-
 local function BindEscape(box, frame)
 	box:SetScript("OnEscapePressed", function(self)
 		self:SetPropagateKeyboardInput(false)
 		frame:Hide()
 	end)
-end
-
-if type(RegisterGameMenuEscHandler) == "function" and type(GameMenuEscPriority) == "table" and GameMenuEscPriority.AddOn then
-	RegisterGameMenuEscHandler(GameMenuEscPriority.AddOn, HideOpenDialogs)
 end
 
 local function AttachDialogChrome(frame)
