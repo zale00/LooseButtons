@@ -1569,6 +1569,7 @@ local function ApplyScale(scale)
 			PlaceButton(button, record)
 		end
 	end
+	RepaintPlaced()
 end
 
 local function ApplyLauncherScale(scale)
@@ -2597,20 +2598,34 @@ local function ShowSectionScale(header)
 	end
 	local scaleLabel = EnsureCheckLabel(header, "checkLabel", "Scale")
 	local themeLabel = EnsureCheckLabel(header, "themeCheckLabel", "Theme")
-	local stack = Logic.SECTION_STACK
+	local row = Logic.SectionRow(scaleLabel:GetStringWidth(), themeLabel:GetStringWidth())
+	local frames = {
+		title = header.text,
+		scaleCheck = header.check,
+		scaleLabel = header.checkLabel,
+		slider = header.sectionSlider,
+		themeCheck = header.themeCheck,
+		themeLabel = header.themeCheckLabel,
+		dropdown = header.sectionTheme,
+	}
+	local order = { "scaleCheck", "scaleLabel", "slider", "themeCheck", "themeLabel", "dropdown" }
+	local i
+	for i = 1, #order do
+		local anchor = row.anchors[order[i]]
+		local frame = frames[order[i]]
+		local relFrame = anchor and frames[anchor.rel]
+		if frame and relFrame then
+			frame:ClearAllPoints()
+			frame:SetPoint(anchor.point, relFrame, anchor.relPoint, anchor.x, anchor.y)
+		end
+	end
 	header.check:Show()
-	header.check:ClearAllPoints()
-	header.check:SetPoint("TOPLEFT", header.text, "BOTTOMLEFT", 0, -stack.sliderCap)
 	if header.check.SetChecked then
 		header.check:SetChecked(DB().launcherScaleSeparate)
 	end
 	scaleLabel:Show()
-	scaleLabel:ClearAllPoints()
-	scaleLabel:SetPoint("LEFT", header.check, "RIGHT", stack.labelGap, 0)
 	ApplySpellbookColor(scaleLabel)
 	local slider = header.sectionSlider
-	slider:ClearAllPoints()
-	slider:SetPoint("LEFT", scaleLabel, "RIGHT", stack.controlGap, Logic.SectionSliderNudge())
 	if slider.SetValue and not LB.launcherScaleWriting then
 		LB.launcherScaleWriting = true
 		slider:SetValue(Logic.ScalePercent(DB().launcherScale))
@@ -2620,18 +2635,12 @@ local function ShowSectionScale(header)
 	LB.launcherSlider = slider
 	local themeCheck = header.themeCheck
 	themeCheck:Show()
-	themeCheck:ClearAllPoints()
-	themeCheck:SetPoint("TOPLEFT", header.check, "TOPLEFT", 0, Logic.SectionThemeOffset())
 	if themeCheck.SetChecked then
 		themeCheck:SetChecked(DB().launcherThemeSeparate)
 	end
 	themeLabel:Show()
-	themeLabel:ClearAllPoints()
-	themeLabel:SetPoint("LEFT", themeCheck, "RIGHT", stack.labelGap, 0)
 	ApplySpellbookColor(themeLabel)
 	local dropdown = header.sectionTheme
-	dropdown:ClearAllPoints()
-	dropdown:SetPoint("LEFT", themeLabel, "RIGHT", stack.controlGap, 0)
 	local theme = Logic.NormalizeTheme(DB().launcherTheme)
 	if dropdown.SetDefaultText then
 		dropdown:SetDefaultText(Logic.THEMES[theme].title)

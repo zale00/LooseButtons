@@ -1138,33 +1138,42 @@ function Logic.PressFeedback(theme)
 	return "frame"
 end
 
+function Logic.SectionRow(scaleLabelW, themeLabelW)
+	if type(scaleLabelW) ~= "number" or scaleLabelW < 0 then
+		scaleLabelW = 0
+	end
+	if type(themeLabelW) ~= "number" or themeLabelW < 0 then
+		themeLabelW = 0
+	end
+	local stack = Logic.SECTION_STACK
+	local scaleColumnW = stack.check + stack.labelGap + scaleLabelW + stack.controlGap + stack.sliderW
+	local themeColumnW = stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
+	local themeColumnX = scaleColumnW + stack.controlGap
+	return {
+		height = stack.band + stack.titleLine + stack.sliderH + stack.band + stack.divider,
+		scaleColumnW = scaleColumnW,
+		themeColumnX = themeColumnX,
+		themeColumnW = themeColumnW,
+		anchors = {
+			scaleCheck = { point = "TOPLEFT", rel = "title", relPoint = "BOTTOMLEFT", x = 0, y = -stack.sliderCap },
+			scaleLabel = { point = "LEFT", rel = "scaleCheck", relPoint = "RIGHT", x = stack.labelGap, y = 0 },
+			slider = { point = "LEFT", rel = "scaleLabel", relPoint = "RIGHT", x = stack.controlGap, y = stack.sliderNudge },
+			themeCheck = { point = "TOPLEFT", rel = "title", relPoint = "BOTTOMLEFT", x = themeColumnX, y = -stack.sliderCap },
+			themeLabel = { point = "LEFT", rel = "themeCheck", relPoint = "RIGHT", x = stack.labelGap, y = 0 },
+			dropdown = { point = "LEFT", rel = "themeLabel", relPoint = "RIGHT", x = stack.controlGap, y = 0 },
+		},
+	}
+end
+
 function Logic.CatalogHeaderHeight(title)
 	if title ~= Logic.SECTION_ORDER[1] then
 		return Logic.SECTION_STACK.plain
 	end
-	local stack = Logic.SECTION_STACK
-	local cluster = stack.titleLine + stack.sliderCap + stack.check + stack.stackGap + stack.check
-	return stack.band + cluster + stack.band + stack.divider
+	return Logic.SectionRow().height
 end
 
 function Logic.SectionHeaderInset()
 	return -Logic.SECTION_STACK.band
-end
-
-function Logic.SectionSliderNudge()
-	return Logic.SECTION_STACK.sliderNudge
-end
-
-function Logic.SectionThemeOffset()
-	local stack = Logic.SECTION_STACK
-	return -(stack.check + stack.stackGap)
-end
-
-function Logic.SectionControlReach(scaleLabelW, themeLabelW)
-	local stack = Logic.SECTION_STACK
-	local themeRow = stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
-	local scaleRow = stack.check + stack.labelGap + scaleLabelW + stack.controlGap + stack.sliderW
-	return themeRow, scaleRow
 end
 
 function Logic.ItemCountLook(count)
