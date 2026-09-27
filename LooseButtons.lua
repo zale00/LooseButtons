@@ -3239,37 +3239,24 @@ local function EnsureShareFrame()
 	local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -14)
 	title:SetText("Share")
+	local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	hint:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -36)
+	hint:SetText("Press Ctrl+C to copy.")
 	local box = CreateFrame("EditBox", nil, frame)
 	box:SetMultiLine(true)
 	box:SetAutoFocus(false)
 	box:SetFontObject("ChatFontNormal")
 	box:SetSize(388, 90)
-	box:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -40)
+	box:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -56)
 	box:SetTextInsets(6, 6, 6, 6)
 	box:SetMaxLetters(20000)
 	local shareBg = box:CreateTexture(nil, "BACKGROUND")
 	shareBg:SetAllPoints(box)
 	shareBg:SetColorTexture(0, 0, 0, 0.45)
-	local copy = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-	copy:SetSize(164, 22)
-	copy:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -12)
-	copy:SetText("Copy to Clipboard")
-	copy:SetScript("OnClick", function()
-		if InCombatLockdown() then
-			Say("Leave combat to copy.")
-			return
-		end
-		local text = box:GetText()
-		if type(CopyToClipboard) ~= "function" then
-			Say("Copy is not available.")
-			return
-		end
-		CopyToClipboard(text)
-	end)
 	frame.box = box
 	BindEscape(box, frame)
 	AttachDialogChrome(frame)
-	LB.FitDialog(frame, copy, 16, { box })
+	LB.FitDialog(frame, box, 16)
 	frame:Hide()
 	LB.shareFrame = frame
 	return frame
@@ -3289,6 +3276,8 @@ local function OpenShare()
 	local frame = EnsureShareFrame()
 	frame.box:SetText(text)
 	frame:Show()
+	frame.box:SetFocus()
+	frame.box:HighlightText()
 end
 
 local function EnsureImportFrame()

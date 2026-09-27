@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Share selects the layout string. Press Ctrl+C to copy. The dialog does not call CopyToClipboard.
 - Edge cooldown covers the cropped icon. The other themes keep the swipe inset from the icon.
 - Edge is a new button theme: a gray rim on a dark well, a red rim on hover, and a red wash while pressed.
 - Changing scale repaints placed buttons, so the hover highlight matches the new size instead of hanging below the button.
@@ -9,7 +10,7 @@
 - The first time you open the Loose Buttons spellbook tab, the catalog and ribbon stay visible. A reused category button no longer hides them, because the hide hook reads the live tab id.
 - Edit and Quick Keybind hide the button tooltip and the bind tooltip when bind mode starts, the cursor stays on a button, the cursor leaves, or bind mode ends.
 - Character & info centers its title in the header, and Scale sits closer above Theme.
-- Share and Import dialogs grow to fit their controls, and Share copies the layout string with Copy to Clipboard.
+- Share and Import dialogs grow to fit their controls.
 - Character & info stacks Scale above Theme so the dropdown stays on the parchment, and No plate glows inside the icon instead of an outer frame.
 - Leaving the Loose Buttons spellbook tab for another addon tab hides the catalog, section headers, and parchment ribbon.
 - Escape ends bind mode without tainting the game menu, so stopping a cast still works.
