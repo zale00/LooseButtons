@@ -1,0 +1,146 @@
+<Bindings>
+	<Binding name="CLICK LooseButtonsAction1:LeftButton" header="LOOSEBUTTONS" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction2:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction3:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction4:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction5:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction6:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction7:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction8:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction9:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction10:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction11:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction12:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction13:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction14:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction15:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction16:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction17:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction18:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction19:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction20:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction21:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction22:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction23:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction24:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction25:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction26:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction27:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction28:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction29:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction30:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction31:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction32:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction33:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction34:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction35:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction36:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction37:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction38:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction39:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction40:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction41:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction42:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction43:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction44:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction45:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction46:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction47:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsAction48:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher1:LeftButton" header="LOOSEBUTTONSLAUNCHERS" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher2:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher3:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher4:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher5:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher6:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher7:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher8:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher9:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher10:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher11:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher12:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher13:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher14:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher15:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher16:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher17:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher18:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher19:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher20:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher21:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher22:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher23:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK LooseButtonsLauncher24:LeftButton" category="ADDONS">
+	</Binding>
+</Bindings>
