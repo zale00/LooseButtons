@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- The first time you open the Loose Buttons spellbook tab, the catalog and ribbon stay visible. A reused category button no longer hides them, because the hide hook reads the live tab id.
 - Edit and Quick Keybind hide the button tooltip and the bind tooltip when bind mode starts, the cursor stays on a button, the cursor leaves, or bind mode ends.
 - Character & info centers its title in the header, and Scale sits closer above Theme.
 - Share and Import dialogs grow to fit their controls, and Share copies the layout string with Copy to Clipboard.

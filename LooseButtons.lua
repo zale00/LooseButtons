@@ -3710,11 +3710,21 @@ local function WatchTabButton(book, button, tabID, watchedButtons)
 		return
 	end
 	watchedButtons[button] = true
+	local function liveID(self)
+		if type(self) == "table" and type(self.GetTabID) == "function" then
+			local id = self:GetTabID()
+			if id ~= nil then
+				return id
+			end
+		end
+		return tabID
+	end
 	if type(button.SetTabSelected) == "function" then
-		hooksecurefunc(button, "SetTabSelected", function(_, isSelected)
-			if isSelected and tabID ~= LB.tabID then
-				HideForOtherTab(book, tabID)
-			elseif not isSelected and tabID == LB.tabID then
+		hooksecurefunc(button, "SetTabSelected", function(self, isSelected)
+			local id = liveID(self)
+			if isSelected and id ~= LB.tabID then
+				HideForOtherTab(book, id)
+			elseif not isSelected and id == LB.tabID then
 				HideForOtherTab(book, nil)
 			end
 		end)
@@ -3724,10 +3734,11 @@ local function WatchTabButton(book, button, tabID, watchedButtons)
 	end
 	local setScript = button.SetScript
 	local function clickThenHide(handler)
-		return function(...)
-			handler(...)
-			if tabID ~= LB.tabID then
-				HideForOtherTab(book, tabID)
+		return function(self, ...)
+			handler(self, ...)
+			local id = liveID(self)
+			if id ~= LB.tabID then
+				HideForOtherTab(book, id)
 			end
 		end
 	end
