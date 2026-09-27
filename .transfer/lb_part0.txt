@@ -1,0 +1,7 @@
+BINDING_HEADER_LOOSEBUTTONS = "Loose Buttons"
+BINDING_HEADER_LOOSEBUTTONSLAUNCHERS = "Loose Buttons Launchers"
+
+local Logic = LooseButtonsLogic
+local LB = { actions = {}, launchers = {}, catalogButtons = {}, catalogHeaders = {}, snapLines = {}, previewShift = {}, bookCache = {} }
+
+-- PART0_MARKER_SEE_FULL_FILE
