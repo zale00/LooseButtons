@@ -2600,7 +2600,7 @@ local function ShowSectionScale(header)
 	local stack = Logic.SECTION_STACK
 	header.check:Show()
 	header.check:ClearAllPoints()
-	header.check:SetPoint("TOPLEFT", header.text, "TOPRIGHT", stack.titleGap, 0)
+	header.check:SetPoint("TOPLEFT", header.text, "BOTTOMLEFT", 0, -stack.sliderCap)
 	if header.check.SetChecked then
 		header.check:SetChecked(DB().launcherScaleSeparate)
 	end

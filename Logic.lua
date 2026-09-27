@@ -21,7 +21,6 @@ Logic.SECTION_ORDER = {
 }
 
 Logic.SECTION_STACK = {
-	titleGap = 6,
 	labelGap = 2,
 	controlGap = 8,
 	check = 26,
@@ -31,6 +30,8 @@ Logic.SECTION_STACK = {
 	dropH = 25,
 	stackGap = 2,
 	sliderNudge = 4,
+	sliderCap = 9,
+	titleLine = 22,
 	band = 14,
 	divider = 11,
 	plain = 51,
@@ -1142,7 +1143,7 @@ function Logic.CatalogHeaderHeight(title)
 		return Logic.SECTION_STACK.plain
 	end
 	local stack = Logic.SECTION_STACK
-	local cluster = stack.check + stack.stackGap + stack.check
+	local cluster = stack.titleLine + stack.sliderCap + stack.check + stack.stackGap + stack.check
 	return stack.band + cluster + stack.band + stack.divider
 end
 
@@ -1159,12 +1160,11 @@ function Logic.SectionThemeOffset()
 	return -(stack.check + stack.stackGap)
 end
 
-function Logic.SectionControlReach(titleW, scaleLabelW, themeLabelW)
+function Logic.SectionControlReach(scaleLabelW, themeLabelW)
 	local stack = Logic.SECTION_STACK
-	local scaleLeft = titleW + stack.titleGap
-	local themeRight = scaleLeft + stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
-	local besideRight = scaleLeft + stack.check + stack.labelGap + scaleLabelW + stack.controlGap + stack.sliderW + stack.controlGap + stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
-	return themeRight, besideRight
+	local themeRow = stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
+	local scaleRow = stack.check + stack.labelGap + scaleLabelW + stack.controlGap + stack.sliderW
+	return themeRow, scaleRow
 end
 
 function Logic.ItemCountLook(count)
