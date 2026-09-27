@@ -1,0 +1,12 @@
+## Interface: 120100
+## Title: Loose Buttons
+## Notes: All the buttons. Not a bar.
+## Author: Loose Buttons
+## Version: 0.1.0
+## SavedVariables: LooseButtonsDB
+## X-Flavor: Mainline
+
+# Interface 120100 is not from /dump select(4, GetBuildInfo()). Replace it on the Forever client. Load Out of Date AddOns if the client is newer.
+
+Logic.lua
+LooseButtons.lua
