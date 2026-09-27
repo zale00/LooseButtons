@@ -1533,15 +1533,37 @@ local ACTION_BUTTON_PREFIXES = {
 }
 
 local function ActionButtonUnderCursor()
-	local prefixIndex
-	for prefixIndex = 1, #ACTION_BUTTON_PREFIXES do
-		local prefix = ACTION_BUTTON_PREFIXES[prefixIndex]
-		local i
-		for i = 1, 12 do
-			local button = _G[prefix .. i]
-			if button and button.IsVisible and button.IsMouseOver and button:IsVisible() and button:IsMouseOver() then
-				return button
+	if type(GetMouseFoci) ~= "function" then
+		return nil
+	end
+	local foci = GetMouseFoci()
+	if type(foci) ~= "table" then
+		return nil
+	end
+	local focusIndex
+	for focusIndex = 1, #foci do
+		local frame = foci[focusIndex]
+		local depth = 0
+		while frame and depth < 6 do
+			local name = type(frame) == "table" and type(frame.GetName) == "function" and frame:GetName()
+			if type(name) == "string" then
+				local prefixIndex
+				for prefixIndex = 1, #ACTION_BUTTON_PREFIXES do
+					local prefix = ACTION_BUTTON_PREFIXES[prefixIndex]
+					if string.sub(name, 1, #prefix) == prefix then
+						local rest = string.sub(name, #prefix + 1)
+						local index = tonumber(rest)
+						if index and index >= 1 and index <= 12 and tostring(index) == rest then
+							return frame
+						end
+					end
+				end
 			end
+			if type(frame) ~= "table" or type(frame.GetParent) ~= "function" then
+				break
+			end
+			frame = frame:GetParent()
+			depth = depth + 1
 		end
 	end
 	return nil
@@ -3743,7 +3765,7 @@ local function CatalogUp()
 end
 
 local function HideForOtherTab(book, tabID)
-	if LB.restoringTabs then
+	if book and book.isUpdatingAllSpellData then
 		return
 	end
 	if LB.tabID == nil or tabID == LB.tabID or not CatalogUp() then
@@ -3854,7 +3876,7 @@ local function BindCatalogTab(book, tabID)
 	LB.tabID = tabID
 	if book.SetTabCallback then
 		book:SetTabCallback(tabID, function()
-			if LB.restoringTabs then
+			if book.isUpdatingAllSpellData then
 				if LB.wantCatalog then
 					ShowCatalog(book)
 				end
@@ -3866,7 +3888,7 @@ local function BindCatalogTab(book, tabID)
 	end
 	if book.SetTabDeselectCallback then
 		book:SetTabDeselectCallback(tabID, function()
-			if LB.restoringTabs then
+			if book.isUpdatingAllSpellData then
 				return
 			end
 			LB.wantCatalog = false
@@ -3919,59 +3941,41 @@ local function HookBook()
 		return
 	end
 	local book = PlayerSpellsFrame and PlayerSpellsFrame.SpellBookFrame
-	if not book or type(book.CreateCategoryMixins) ~= "function" then
+	if not book or type(book.CreateCategoryMixins) ~= "function" or type(hooksecurefunc) ~= "function" then
 		return
 	end
 	LB.bookHooked = true
-	local origCreate = book.CreateCategoryMixins
-	local origUpdate = book.UpdateAllSpellData
-	book.CreateCategoryMixins = function(self, ...)
-		if type(securecall) == "function" then
-			securecall(origCreate, self, ...)
-		else
-			origCreate(self, ...)
-		end
+	hooksecurefunc(book, "CreateCategoryMixins", function(self)
 		AddCatalogTab(self)
-	end
-	if type(origUpdate) == "function" then
-		book.UpdateAllSpellData = function(self, ...)
-			local keep = LB.wantCatalog
-			LB.restoringTabs = true
-			if type(securecall) == "function" then
-				securecall(origUpdate, self, ...)
-			else
-				origUpdate(self, ...)
+	end)
+	if type(book.UpdateDisplayedSpells) == "function" then
+		hooksecurefunc(book, "UpdateDisplayedSpells", function(self)
+			if LB.wantCatalog then
+				ClearBlizzardPage(self)
 			end
-			LB.restoringTabs = false
-			if keep and LB.tabID and self.GetTab and self:GetTab() ~= LB.tabID then
-				LB.wantCatalog = true
+		end)
+	end
+	if type(book.UpdateAllSpellData) == "function" then
+		hooksecurefunc(book, "UpdateAllSpellData", function(self)
+			if LB.wantCatalog and LB.tabID and self.GetTab and self:GetTab() ~= LB.tabID then
 				if type(securecall) == "function" then
 					securecall(self.SetTab, self, LB.tabID)
 				else
 					self:SetTab(LB.tabID)
 				end
-			elseif not keep and LB.tabID and self.GetTab and self:GetTab() == LB.tabID then
+			elseif not LB.wantCatalog and LB.tabID and self.GetTab and self:GetTab() == LB.tabID then
 				HideCatalog(self)
 				if type(self.ResetToFirstAvailableTab) == "function" then
-					self:ResetToFirstAvailableTab()
+					if type(securecall) == "function" then
+						securecall(self.ResetToFirstAvailableTab, self)
+					else
+						self:ResetToFirstAvailableTab()
+					end
 				end
-			elseif LB.page and LB.page:IsShown() then
+			elseif LB.page and LB.page.IsShown and LB.page:IsShown() then
 				LayoutCatalog(nil, true)
 			end
-		end
-	end
-	local origDisplayed = book.UpdateDisplayedSpells
-	if type(origDisplayed) == "function" then
-		book.UpdateDisplayedSpells = function(self, ...)
-			if LB.wantCatalog then
-				ClearBlizzardPage(self)
-				return
-			end
-			if type(securecall) == "function" then
-				return securecall(origDisplayed, self, ...)
-			end
-			return origDisplayed(self, ...)
-		end
+		end)
 	end
 	WatchTabSelection(book)
 	book:CreateCategoryMixins()
