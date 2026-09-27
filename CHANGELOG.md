@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- A placed spell button switches to a higher rank of that same spell when you learn it.
 - A spellbook refresh no longer blocks the pet bar from hiding.
 - Share selects the layout string. Press Ctrl+C to copy. The dialog does not call CopyToClipboard.
 - Edge cooldown covers the cropped icon. The other themes keep the swipe inset from the icon.

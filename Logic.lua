@@ -1492,6 +1492,195 @@ function Logic.BuildSections(skillLines, spellAt, launchers, items, macros)
 	return sections
 end
 
+function Logic.RankRow(spell)
+	if type(spell) ~= "table" then
+		return nil
+	end
+	local actionID = spell.spellID
+	local overrideID = spell.baseSpellID
+	local row = {
+		name = spell.name,
+		subName = spell.subName,
+		rank = spell.rank,
+		iconID = spell.iconID,
+		isSpell = spell.isSpell,
+		isPassive = spell.isPassive,
+		isOffSpec = spell.isOffSpec,
+	}
+	if wholeNumber(actionID, 1) and wholeNumber(overrideID, 1) and overrideID ~= actionID then
+		row.spellID = overrideID
+		row.baseSpellID = actionID
+		return row
+	end
+	row.spellID = actionID
+	return row
+end
+
+function Logic.SpellRank(value)
+	if type(issecretvalue) == "function" and issecretvalue(value) then
+		return nil
+	end
+	if wholeNumber(value, 1) then
+		return value
+	end
+	if type(value) == "table" then
+		if wholeNumber(value.rank, 1) then
+			return value.rank
+		end
+		value = value.subName
+		if type(issecretvalue) == "function" and issecretvalue(value) then
+			return nil
+		end
+	end
+	if type(value) ~= "string" then
+		return nil
+	end
+	local trimmed = string.match(value, "^%s*(.-)%s*$")
+	local digits = trimmed and string.match(trimmed, "^%D*(%d+)$")
+	local n = digits and tonumber(digits)
+	if wholeNumber(n, 1) then
+		return n
+	end
+	return nil
+end
+
+function Logic.UpgradeSpellRanks(records, skillLines, spellAt, baseOf, nameOf, rankOf)
+	if type(records) ~= "table" or type(skillLines) ~= "table" or type(spellAt) ~= "function" then
+		return false
+	end
+	local groups = {}
+	local owners = {}
+	local lineIndex
+	for lineIndex = 1, #skillLines do
+		local line = skillLines[lineIndex]
+		if type(line) == "table" and not line.shouldHide and not line.offSpecID then
+			local offset = line.itemIndexOffset or 0
+			local count = line.numSpellBookItems or 0
+			local slot
+			for slot = offset + 1, offset + count do
+				local spell = spellAt(slot)
+				if type(spell) == "table" and spell.isSpell and not spell.isPassive and not spell.isOffSpec then
+					local rawId = spell.spellID
+					local rawBase = spell.baseSpellID
+					local rawName = spell.name
+					local rawIcon = spell.iconID
+					local secret = type(issecretvalue) == "function" and (issecretvalue(rawId) or issecretvalue(rawBase) or issecretvalue(rawName) or issecretvalue(rawIcon))
+					if not secret and wholeNumber(rawId, 1) and wholeNumber(rawBase, 1) and type(rawName) == "string" and rawName ~= "" then
+						local group = groups[rawBase]
+						if not group then
+							group = { byName = {}, list = {} }
+							groups[rawBase] = group
+						end
+						local family = group.byName[rawName]
+						if not family then
+							family = { members = {}, seen = {} }
+							group.byName[rawName] = family
+							group.list[#group.list + 1] = family
+						end
+						if not family.seen[rawId] then
+							family.seen[rawId] = true
+							family.members[#family.members + 1] = {
+								id = rawId,
+								icon = Logic.UsableTexture(rawIcon),
+								rank = Logic.SpellRank(spell),
+							}
+							local owned = owners[rawId]
+							if not owned then
+								owned = {}
+								owners[rawId] = owned
+							end
+							owned[#owned + 1] = family
+						end
+					end
+				end
+			end
+		end
+	end
+	local function pickHigher(family, currentRank)
+		if not wholeNumber(currentRank, 1) then
+			return nil
+		end
+		local best
+		local tie = false
+		local memberIndex
+		for memberIndex = 1, #family.members do
+			local member = family.members[memberIndex]
+			if member.rank then
+				if not best or member.rank > best.rank then
+					best = member
+					tie = false
+				elseif member.rank == best.rank and member.id ~= best.id then
+					tie = true
+				end
+			end
+		end
+		if tie or not best or best.rank <= currentRank then
+			return nil
+		end
+		return best
+	end
+	local changed = false
+	local index
+	for index = 1, #records do
+		local record = records[index]
+		if type(record) == "table" and record.kind == "spell" and wholeNumber(record.payload, 1) then
+			local payload = record.payload
+			local owned = owners[payload]
+			local picked
+			if owned and #owned == 1 then
+				local members = owned[1].members
+				local currentRank
+				local memberIndex
+				for memberIndex = 1, #members do
+					if members[memberIndex].id == payload then
+						currentRank = members[memberIndex].rank
+						break
+					end
+				end
+				picked = pickHigher(owned[1], currentRank)
+			elseif not owned then
+				local base = payload
+				if not groups[base] and type(baseOf) == "function" then
+					local found = baseOf(payload)
+					local secret = type(issecretvalue) == "function" and issecretvalue(found)
+					if not secret and wholeNumber(found, 1) then
+						base = found
+					else
+						base = nil
+					end
+				end
+				local group = base and groups[base]
+				local name
+				if group and type(nameOf) == "function" then
+					name = nameOf(payload)
+					local secret = type(issecretvalue) == "function" and issecretvalue(name)
+					if secret or type(name) ~= "string" or name == "" then
+						name = nil
+					end
+				end
+				local family = group and name and group.byName[name]
+				local currentRank
+				if family and type(rankOf) == "function" then
+					currentRank = Logic.SpellRank(rankOf(payload))
+				end
+				if family then
+					picked = pickHigher(family, currentRank)
+				end
+			end
+			if picked and picked.id ~= payload then
+				record.payload = picked.id
+				if picked.icon then
+					record.icon = picked.icon
+				else
+					record.icon = nil
+				end
+				changed = true
+			end
+		end
+	end
+	return changed
+end
+
 local PROFILE_FIELDS = {
 	"buttons",
 	"theme",

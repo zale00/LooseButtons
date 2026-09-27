@@ -2414,6 +2414,7 @@ local function SpellAt(index)
 		spellID = actionID,
 		baseSpellID = type(info.spellID) == "number" and info.spellID or nil,
 		name = info.name,
+		subName = info.subName,
 		iconID = info.iconID,
 		isSpell = isSpell and true or false,
 		isPassive = info.isPassive and true or false,
@@ -2441,6 +2442,61 @@ local function SkillLines()
 		end
 	end
 	return lines
+end
+
+function LB.SpellBase(spellID)
+	if type(issecretvalue) == "function" and issecretvalue(spellID) then
+		return nil
+	end
+	if type(spellID) ~= "number" or spellID < 1 or spellID ~= math.floor(spellID) then
+		return nil
+	end
+	if type(C_SpellBook) ~= "table" or type(C_SpellBook.FindBaseSpellByID) ~= "function" then
+		return nil
+	end
+	local base = C_SpellBook.FindBaseSpellByID(spellID)
+	if type(issecretvalue) == "function" and issecretvalue(base) then
+		return nil
+	end
+	if type(base) ~= "number" or base < 1 or base ~= math.floor(base) then
+		return nil
+	end
+	return base
+end
+
+function LB.SpellName(spellID)
+	if type(issecretvalue) == "function" and issecretvalue(spellID) then
+		return nil
+	end
+	if type(C_Spell) ~= "table" or type(C_Spell.GetSpellName) ~= "function" then
+		return nil
+	end
+	local name = C_Spell.GetSpellName(spellID)
+	if type(issecretvalue) == "function" and issecretvalue(name) then
+		return nil
+	end
+	if type(name) ~= "string" or name == "" then
+		return nil
+	end
+	return name
+end
+
+function LB.SpellRank(spellID)
+	if type(issecretvalue) == "function" and issecretvalue(spellID) then
+		return nil
+	end
+	if type(C_Spell) ~= "table" or type(C_Spell.GetSpellSubtext) ~= "function" then
+		return nil
+	end
+	return Logic.SpellRank(C_Spell.GetSpellSubtext(spellID))
+end
+
+function LB.FollowRanks()
+	if Logic.UpgradeSpellRanks(DB().buttons, SkillLines(), function(index)
+		return Logic.RankRow(SpellAt(index))
+	end, LB.SpellBase, LB.SpellName, LB.SpellRank) then
+		LB.bookStale = true
+	end
 end
 
 local function BindingExists(command)
@@ -4028,6 +4084,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 	if event == "PLAYER_LOGIN" or event == "PLAYER_REGEN_ENABLED" then
 		if event == "PLAYER_LOGIN" then
 			LoadDB()
+			LB.FollowRanks()
 		end
 		EnsurePool()
 		if LB.bookStale and LB.poolReady and not InCombatLockdown() then
@@ -4076,16 +4133,24 @@ events:SetScript("OnEvent", function(_, event, arg1)
 	end
 	if event == "SPELLS_CHANGED" then
 		LB.bookCache = {}
+		LB.FollowRanks()
 		if LB.poolReady and HiddenIds() ~= LB.hiddenIds then
 			LB.bookStale = true
 		end
-		if LB.bookStale and not InCombatLockdown() then
+		if LB.bookStale and LB.poolReady and not InCombatLockdown() then
 			LB.bookStale = nil
 			ApplyAll()
 		end
 		return
 	end
 	if event == "LEARNED_SPELL_IN_SKILL_LINE" or event == "UPDATE_MACROS" then
+		if event == "LEARNED_SPELL_IN_SKILL_LINE" then
+			LB.FollowRanks()
+			if LB.bookStale and LB.poolReady and not InCombatLockdown() then
+				LB.bookStale = nil
+				ApplyAll()
+			end
+		end
 		if LB.page and LB.page:IsShown() then
 			LayoutCatalog(nil, true)
 		end
