@@ -30,8 +30,9 @@ Logic.SECTION_STACK = {
 	dropW = 150,
 	dropH = 25,
 	stackGap = 2,
-	top = 4,
-	bottom = 12,
+	sliderNudge = 4,
+	band = 14,
+	divider = 11,
 	plain = 51,
 }
 
@@ -1141,13 +1142,21 @@ function Logic.CatalogHeaderHeight(title)
 		return Logic.SECTION_STACK.plain
 	end
 	local stack = Logic.SECTION_STACK
-	local themeOffset = (stack.check + stack.sliderH) / 2 + stack.stackGap
-	return stack.top + themeOffset + stack.check + stack.bottom
+	local cluster = stack.check + stack.stackGap + stack.check
+	return stack.band + cluster + stack.band + stack.divider
+end
+
+function Logic.SectionHeaderInset()
+	return -Logic.SECTION_STACK.band
+end
+
+function Logic.SectionSliderNudge()
+	return Logic.SECTION_STACK.sliderNudge
 end
 
 function Logic.SectionThemeOffset()
 	local stack = Logic.SECTION_STACK
-	return -((stack.check + stack.sliderH) / 2 + stack.stackGap)
+	return -(stack.check + stack.stackGap)
 end
 
 function Logic.SectionControlReach(titleW, scaleLabelW, themeLabelW)

@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Character & info centers its title in the header, and Scale sits closer above Theme.
 - Share and Import dialogs grow to fit their controls, and Share copies the layout string with Copy to Clipboard.
 - Character & info stacks Scale above Theme so the dropdown stays on the parchment, and No plate glows inside the icon instead of an outer frame.
 - Leaving the Loose Buttons spellbook tab for another addon tab hides the catalog, section headers, and parchment ribbon.

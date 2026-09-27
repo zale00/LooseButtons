@@ -2597,7 +2597,7 @@ local function ShowSectionScale(header)
 	ApplySpellbookColor(scaleLabel)
 	local slider = header.sectionSlider
 	slider:ClearAllPoints()
-	slider:SetPoint("LEFT", scaleLabel, "RIGHT", stack.controlGap, 0)
+	slider:SetPoint("LEFT", scaleLabel, "RIGHT", stack.controlGap, Logic.SectionSliderNudge())
 	if slider.SetValue and not LB.launcherScaleWriting then
 		LB.launcherScaleWriting = true
 		slider:SetValue(Logic.ScalePercent(DB().launcherScale))
@@ -2682,7 +2682,7 @@ local function LayoutCatalog(items, scheduleItems)
 			header.text:SetJustifyH("LEFT")
 			header.divider = header:CreateTexture(nil, "ARTWORK")
 			header.divider:SetAtlas("spellbook-divider", true)
-			header.divider:SetHeight(11)
+			header.divider:SetHeight(Logic.SECTION_STACK.divider)
 			header.divider:SetPoint("BOTTOMLEFT", header, "BOTTOMLEFT", 0, 0)
 			header.divider:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
 			LB.catalogHeaders[headerIndex] = header
@@ -2692,13 +2692,17 @@ local function LayoutCatalog(items, scheduleItems)
 		header:SetSize(inner, headerH)
 		header:SetPoint("TOPLEFT", content, "TOPLEFT", pad, -y)
 		header.text:ClearAllPoints()
-		header.text:SetPoint("TOPLEFT", header, "TOPLEFT", pad, -4)
+		local textY = -4
+		if section.title == Logic.SECTION_ORDER[1] then
+			textY = Logic.SectionHeaderInset()
+		end
+		header.text:SetPoint("TOPLEFT", header, "TOPLEFT", pad, textY)
 		header.text:SetText(section.title)
 		ApplySpellbookColor(header.text)
 		if section.title == Logic.SECTION_ORDER[1] then
 			ShowSectionScale(header)
 		else
-			header.text:SetPoint("TOPRIGHT", header, "TOPRIGHT", -pad, -4)
+			header.text:SetPoint("TOPRIGHT", header, "TOPRIGHT", -pad, textY)
 			HideSectionScale(header)
 		end
 		header:Show()
