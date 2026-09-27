@@ -20,6 +20,21 @@ Logic.SECTION_ORDER = {
 	"Character & info",
 }
 
+Logic.SECTION_STACK = {
+	titleGap = 6,
+	labelGap = 2,
+	controlGap = 8,
+	check = 26,
+	sliderW = 180,
+	sliderH = 36,
+	dropW = 150,
+	dropH = 25,
+	stackGap = 2,
+	top = 4,
+	bottom = 12,
+	plain = 51,
+}
+
 Logic.MACRO_SECTIONS = {
 	{ scope = "general", title = "General Macros" },
 	{ scope = "character", title = "Character Macros" },
@@ -1114,6 +1129,35 @@ function Logic.StockTheme(theme)
 	return spec and spec.stock and true or false
 end
 
+function Logic.PressFeedback(theme)
+	if Logic.NormalizeTheme(theme) == "no_plate" then
+		return "icon"
+	end
+	return "frame"
+end
+
+function Logic.CatalogHeaderHeight(title)
+	if title ~= Logic.SECTION_ORDER[1] then
+		return Logic.SECTION_STACK.plain
+	end
+	local stack = Logic.SECTION_STACK
+	local themeOffset = (stack.check + stack.sliderH) / 2 + stack.stackGap
+	return stack.top + themeOffset + stack.check + stack.bottom
+end
+
+function Logic.SectionThemeOffset()
+	local stack = Logic.SECTION_STACK
+	return -((stack.check + stack.sliderH) / 2 + stack.stackGap)
+end
+
+function Logic.SectionControlReach(titleW, scaleLabelW, themeLabelW)
+	local stack = Logic.SECTION_STACK
+	local scaleLeft = titleW + stack.titleGap
+	local themeRight = scaleLeft + stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
+	local besideRight = scaleLeft + stack.check + stack.labelGap + scaleLabelW + stack.controlGap + stack.sliderW + stack.controlGap + stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
+	return themeRight, besideRight
+end
+
 function Logic.ItemCountLook(count)
 	if type(count) ~= "number" then
 		return nil
@@ -1156,6 +1200,9 @@ end
 
 Logic.STOCK_PUSHED_ATLAS = "UI-HUD-ActionBar-IconFrame-Down"
 Logic.STOCK_HIGHLIGHT_ATLAS = "UI-HUD-ActionBar-IconFrame-Mouseover"
+Logic.ICON_GLOW_INSET = 4
+Logic.ICON_GLOW_ALPHA = 0.35
+Logic.ICON_PRESS_ALPHA = 0.25
 
 function Logic.StockIconLayout(width, height)
 	if type(width) ~= "number" or width <= 0 then

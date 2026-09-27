@@ -586,14 +586,78 @@ local function ButtonLayout(button)
 	return Logic.StockIconLayout(width, height)
 end
 
-local function WirePressFeedback(button, frameW, frameH)
-	if button.SetPushedAtlas then
-		button:SetPushedAtlas(Logic.STOCK_PUSHED_ATLAS)
-		FitStockFrame(button:GetPushedTexture(), frameW, frameH, "pushed")
+local function WirePressFeedback(button, frameW, frameH, theme)
+	local function hideGlow()
+		if button.lbIconGlow then
+			button.lbIconGlow:Hide()
+		end
+		if button.lbIconPress then
+			button.lbIconPress:Hide()
+		end
 	end
-	if button.SetHighlightAtlas then
-		button:SetHighlightAtlas(Logic.STOCK_HIGHLIGHT_ATLAS)
-		FitStockFrame(button:GetHighlightTexture(), frameW, frameH, "highlight")
+	if Logic.PressFeedback(theme) ~= "icon" then
+		hideGlow()
+		if button.SetPushedAtlas then
+			button:SetPushedAtlas(Logic.STOCK_PUSHED_ATLAS)
+			FitStockFrame(button:GetPushedTexture(), frameW, frameH, "pushed")
+		end
+		if button.SetHighlightAtlas then
+			button:SetHighlightAtlas(Logic.STOCK_HIGHLIGHT_ATLAS)
+			FitStockFrame(button:GetHighlightTexture(), frameW, frameH, "highlight")
+		end
+		return
+	end
+	local icon = button.icon
+	if not icon then
+		hideGlow()
+		return
+	end
+	local function copyFace(from, to)
+		local atlas
+		if type(from.GetAtlas) == "function" then
+			atlas = from:GetAtlas()
+		end
+		if type(atlas) == "string" and atlas ~= "" and type(to.SetAtlas) == "function" then
+			to:SetAtlas(atlas)
+			return true
+		end
+		if type(from.GetTexture) == "function" and type(to.SetTexture) == "function" then
+			local texture = from:GetTexture()
+			if texture then
+				to:SetTexture(texture)
+				return true
+			end
+		end
+		return false
+	end
+	local function placeGlow(tex, alpha)
+		local inset = Logic.ICON_GLOW_INSET
+		tex:ClearAllPoints()
+		tex:SetPoint("TOPLEFT", icon, "TOPLEFT", inset, -inset)
+		tex:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -inset, inset)
+		if tex.SetBlendMode then
+			tex:SetBlendMode("ADD")
+		end
+		tex:SetAlpha(alpha)
+		tex:Show()
+	end
+	if not button.lbIconGlow then
+		button.lbIconGlow = button:CreateTexture(nil, "HIGHLIGHT")
+	end
+	if not copyFace(icon, button.lbIconGlow) and button.lbIconGlow.SetColorTexture then
+		button.lbIconGlow:SetColorTexture(1, 0.95, 0.8, 1)
+	end
+	placeGlow(button.lbIconGlow, Logic.ICON_GLOW_ALPHA)
+	if not button.lbIconPress then
+		button.lbIconPress = button:CreateTexture(nil, "OVERLAY")
+	end
+	if not copyFace(icon, button.lbIconPress) and button.lbIconPress.SetColorTexture then
+		button.lbIconPress:SetColorTexture(1, 0.95, 0.8, 1)
+	end
+	placeGlow(button.lbIconPress, Logic.ICON_PRESS_ALPHA)
+	if button.SetPushedTexture then
+		button:SetPushedTexture(button.lbIconPress)
+		placeGlow(button.lbIconPress, Logic.ICON_PRESS_ALPHA)
 	end
 end
 
@@ -651,7 +715,7 @@ local function PaintThemedFace(button, paint, icon, theme)
 	end
 	ApplyChrome(button, Logic.ThemeSpec(theme))
 	local _, _, frameW, frameH = ButtonLayout(button)
-	WirePressFeedback(button, frameW, frameH)
+	WirePressFeedback(button, frameW, frameH, theme)
 end
 
 local function PaintFace(button, paint, icon, theme)
@@ -665,6 +729,12 @@ local function PaintFace(button, paint, icon, theme)
 	SetIconMask(button, false)
 	ShowStockSlot(button, false)
 	ClearStateTextures(button)
+	if button.lbIconGlow then
+		button.lbIconGlow:Hide()
+	end
+	if button.lbIconPress then
+		button.lbIconPress:Hide()
+	end
 	if stock and chrome == "micro" then
 		HideChrome(button)
 		local plate = MicroPlate(button)
@@ -2444,22 +2514,12 @@ local function ShowSectionScale(header)
 			if header.sectionSlider then
 				header.sectionSlider:SetShown(DB().launcherScaleSeparate)
 			end
-			if header.themeCheck then
-				header.themeCheck:ClearAllPoints()
-				if DB().launcherScaleSeparate and header.sectionSlider then
-					header.themeCheck:SetPoint("LEFT", header.sectionSlider, "RIGHT", 8, 0)
-				elseif header.checkLabel then
-					header.themeCheck:SetPoint("LEFT", header.checkLabel, "RIGHT", 8, 0)
-				else
-					header.themeCheck:SetPoint("LEFT", header.check, "RIGHT", 8, 0)
-				end
-			end
 			ApplyScale(CurrentScale())
 		end)
 		header.check = check
 		EnsureCheckLabel(header, "checkLabel", "Scale")
 		local slider = CreateFrame("Frame", nil, header, "MinimalSliderWithSteppersTemplate")
-		slider:SetSize(180, 36)
+		slider:SetSize(Logic.SECTION_STACK.sliderW, Logic.SECTION_STACK.sliderH)
 		local label = MinimalSliderWithSteppersMixin and MinimalSliderWithSteppersMixin.Label
 		if slider.Init and label then
 			local formatters = {}
@@ -2502,7 +2562,7 @@ local function ShowSectionScale(header)
 		header.themeCheck = themeCheck
 		EnsureCheckLabel(header, "themeCheckLabel", "Theme")
 		local dropdown = CreateFrame("DropdownButton", nil, header, "WowStyle1DropdownTemplate")
-		dropdown:SetSize(150, 25)
+		dropdown:SetSize(Logic.SECTION_STACK.dropW, Logic.SECTION_STACK.dropH)
 		local theme = Logic.NormalizeTheme(DB().launcherTheme)
 		if dropdown.SetDefaultText then
 			dropdown:SetDefaultText(Logic.THEMES[theme].title)
@@ -2524,19 +2584,20 @@ local function ShowSectionScale(header)
 	end
 	local scaleLabel = EnsureCheckLabel(header, "checkLabel", "Scale")
 	local themeLabel = EnsureCheckLabel(header, "themeCheckLabel", "Theme")
+	local stack = Logic.SECTION_STACK
 	header.check:Show()
 	header.check:ClearAllPoints()
-	header.check:SetPoint("LEFT", header.text, "RIGHT", 6, 0)
+	header.check:SetPoint("TOPLEFT", header.text, "TOPRIGHT", stack.titleGap, 0)
 	if header.check.SetChecked then
 		header.check:SetChecked(DB().launcherScaleSeparate)
 	end
 	scaleLabel:Show()
 	scaleLabel:ClearAllPoints()
-	scaleLabel:SetPoint("LEFT", header.check, "RIGHT", 2, 0)
+	scaleLabel:SetPoint("LEFT", header.check, "RIGHT", stack.labelGap, 0)
 	ApplySpellbookColor(scaleLabel)
 	local slider = header.sectionSlider
 	slider:ClearAllPoints()
-	slider:SetPoint("LEFT", scaleLabel, "RIGHT", 8, 0)
+	slider:SetPoint("LEFT", scaleLabel, "RIGHT", stack.controlGap, 0)
 	if slider.SetValue and not LB.launcherScaleWriting then
 		LB.launcherScaleWriting = true
 		slider:SetValue(Logic.ScalePercent(DB().launcherScale))
@@ -2547,21 +2608,17 @@ local function ShowSectionScale(header)
 	local themeCheck = header.themeCheck
 	themeCheck:Show()
 	themeCheck:ClearAllPoints()
-	if DB().launcherScaleSeparate then
-		themeCheck:SetPoint("LEFT", slider, "RIGHT", 8, 0)
-	else
-		themeCheck:SetPoint("LEFT", scaleLabel, "RIGHT", 8, 0)
-	end
+	themeCheck:SetPoint("TOPLEFT", header.check, "TOPLEFT", 0, Logic.SectionThemeOffset())
 	if themeCheck.SetChecked then
 		themeCheck:SetChecked(DB().launcherThemeSeparate)
 	end
 	themeLabel:Show()
 	themeLabel:ClearAllPoints()
-	themeLabel:SetPoint("LEFT", themeCheck, "RIGHT", 2, 0)
+	themeLabel:SetPoint("LEFT", themeCheck, "RIGHT", stack.labelGap, 0)
 	ApplySpellbookColor(themeLabel)
 	local dropdown = header.sectionTheme
 	dropdown:ClearAllPoints()
-	dropdown:SetPoint("LEFT", themeLabel, "RIGHT", 8, 0)
+	dropdown:SetPoint("LEFT", themeLabel, "RIGHT", stack.controlGap, 0)
 	local theme = Logic.NormalizeTheme(DB().launcherTheme)
 	if dropdown.SetDefaultText then
 		dropdown:SetDefaultText(Logic.THEMES[theme].title)
@@ -2590,7 +2647,7 @@ local function LayoutCatalog(items, scheduleItems)
 	local rowH = 60
 	local yGap = 10
 	local xPad = 15
-	local headerH = 51
+	local headerH = Logic.SECTION_STACK.plain
 	local pad = Logic.CatalogTextLeft()
 	local inner = width - pad * 2
 	if inner < 40 then
@@ -2630,6 +2687,7 @@ local function LayoutCatalog(items, scheduleItems)
 			header.divider:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
 			LB.catalogHeaders[headerIndex] = header
 		end
+		headerH = Logic.CatalogHeaderHeight(section.title)
 		header:ClearAllPoints()
 		header:SetSize(inner, headerH)
 		header:SetPoint("TOPLEFT", content, "TOPLEFT", pad, -y)
@@ -3062,6 +3120,35 @@ local function AttachDialogChrome(frame)
 	end)
 end
 
+function LB.FitDialog(frame, bottom, pad, watched)
+	local function fit()
+		local top = frame:GetTop()
+		local low = bottom:GetBottom()
+		if type(top) ~= "number" or type(low) ~= "number" then
+			return
+		end
+		-- Centered frame: a new height moves the top, and children move with it.
+		local height = (top - low) + pad
+		if height > frame:GetHeight() + 0.5 then
+			frame:SetHeight(height)
+		end
+	end
+	local function watch(widget)
+		if type(widget) == "table" and type(widget.HookScript) == "function" then
+			widget:HookScript("OnSizeChanged", fit)
+		end
+	end
+	watch(bottom)
+	if type(watched) == "table" then
+		local i
+		for i = 1, #watched do
+			watch(watched[i])
+		end
+	end
+	frame:HookScript("OnShow", fit)
+	fit()
+end
+
 local function EnsureShareFrame()
 	if LB.shareFrame then
 		return LB.shareFrame
@@ -3077,23 +3164,37 @@ local function EnsureShareFrame()
 	local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -14)
 	title:SetText("Share")
-	local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	hint:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -36)
-	hint:SetText("Press Ctrl+C to copy.")
 	local box = CreateFrame("EditBox", nil, frame)
 	box:SetMultiLine(true)
 	box:SetAutoFocus(false)
 	box:SetFontObject("ChatFontNormal")
 	box:SetSize(388, 90)
-	box:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -56)
+	box:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -40)
 	box:SetTextInsets(6, 6, 6, 6)
 	box:SetMaxLetters(20000)
 	local shareBg = box:CreateTexture(nil, "BACKGROUND")
 	shareBg:SetAllPoints(box)
 	shareBg:SetColorTexture(0, 0, 0, 0.45)
+	local copy = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+	copy:SetSize(164, 22)
+	copy:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -12)
+	copy:SetText("Copy to Clipboard")
+	copy:SetScript("OnClick", function()
+		if InCombatLockdown() then
+			Say("Leave combat to copy.")
+			return
+		end
+		local text = box:GetText()
+		if type(CopyToClipboard) ~= "function" then
+			Say("Copy is not available.")
+			return
+		end
+		CopyToClipboard(text)
+	end)
 	frame.box = box
 	BindEscape(box, frame)
 	AttachDialogChrome(frame)
+	LB.FitDialog(frame, copy, 16, { box })
 	frame:Hide()
 	LB.shareFrame = frame
 	return frame
@@ -3112,8 +3213,6 @@ local function OpenShare()
 	end
 	local frame = EnsureShareFrame()
 	frame.box:SetText(text)
-	frame.box:HighlightText()
-	frame.box:SetFocus()
 	frame:Show()
 end
 
@@ -3169,6 +3268,7 @@ local function EnsureImportFrame()
 		nameBox:SetText("")
 	end)
 	AttachDialogChrome(frame)
+	LB.FitDialog(frame, accept, 16, { paste, nameBox })
 	frame:Hide()
 	LB.importFrame = frame
 	return frame
