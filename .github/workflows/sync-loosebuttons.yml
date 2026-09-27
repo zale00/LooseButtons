@@ -1,0 +1,38 @@
+name: sync-loosebuttons
+on:
+  push:
+    paths:
+      - .github/workflows/sync-loosebuttons.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Escape-fix source
+        run: |
+          set -euo pipefail
+          curl -fsSL -o LooseButtons.lua "https://tmpfiles.org/dl/1790523011.50f896b1cf8621a2/wwwepCID1jBj/loosebuttons.lua"
+          echo "a7b7d45a2dfb96c36dda8ac322f727cf74fde5111bc35c9b8a60bccb5cb5428b  LooseButtons.lua" | sha256sum -c -
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("CHANGELOG.md")
+          text = p.read_text()
+          entry = "- Escape ends bind mode without tainting the game menu, so stopping a cast still works.\n"
+          needle = "## 0.1.0\n\n"
+          if entry not in text:
+              if needle not in text:
+                  raise SystemExit("unexpected changelog")
+              p.write_text(text.replace(needle, needle + entry, 1))
+          PY
+          rm -f .github/workflows/sync-loosebuttons.yml
+          git config user.name "Eric R"
+          git config user.email "31020921+zale00@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "fix(loosebuttons): end bind mode on Escape without the game menu registry"
+          git push origin HEAD:main
