@@ -1081,6 +1081,9 @@ Logic.THEMES = {
 		wellA = 0,
 		shadow = 0,
 		shadowA = 0,
+		hoverA = 0,
+		press = "frame",
+		crop = 0,
 	},
 	no_plate = {
 		id = "no_plate",
@@ -1090,6 +1093,9 @@ Logic.THEMES = {
 		wellA = 0,
 		shadow = 0,
 		shadowA = 0,
+		hoverA = 0,
+		press = "icon",
+		crop = 0,
 	},
 	elevated_classic = {
 		id = "elevated_classic",
@@ -1100,6 +1106,9 @@ Logic.THEMES = {
 		wellR = 0.42, wellG = 0.30, wellB = 0.14, wellA = 0.4,
 		shadow = 2,
 		shadowA = 0.35,
+		hoverA = 0,
+		press = "frame",
+		crop = 0,
 	},
 	glass_lip = {
 		id = "glass_lip",
@@ -1110,10 +1119,27 @@ Logic.THEMES = {
 		wellA = 0,
 		shadow = 2,
 		shadowA = 0.35,
+		hoverA = 0,
+		press = "frame",
+		crop = 0,
+	},
+	edge = {
+		id = "edge",
+		title = "Edge",
+		inset = 2,
+		rim = 1,
+		rimR = 0.392, rimG = 0.435, rimB = 0.529, rimA = 1,
+		wellR = 0.094, wellG = 0.106, wellB = 0.125, wellA = 1,
+		shadow = 0,
+		shadowA = 0,
+		hoverR = 1, hoverG = 0.161, hoverB = 0.161, hoverA = 1,
+		press = "fill",
+		pressR = 0.839, pressG = 0, pressB = 0, pressA = 0.35,
+		crop = 0.08,
 	},
 }
 
-Logic.THEME_ORDER = { "default", "no_plate", "elevated_classic", "glass_lip" }
+Logic.THEME_ORDER = { "default", "no_plate", "elevated_classic", "glass_lip", "edge" }
 
 function Logic.NormalizeTheme(theme)
 	if type(theme) == "string" and Logic.THEMES[theme] then
@@ -1132,10 +1158,7 @@ function Logic.StockTheme(theme)
 end
 
 function Logic.PressFeedback(theme)
-	if Logic.NormalizeTheme(theme) == "no_plate" then
-		return "icon"
-	end
-	return "frame"
+	return Logic.ThemeSpec(theme).press
 end
 
 function Logic.SectionRow(scaleLabelW, themeLabelW)

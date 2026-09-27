@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Edge is a new button theme: a gray rim on a dark well, a red rim on hover, and a red wash while pressed.
 - Changing scale repaints placed buttons, so the hover highlight matches the new size instead of hanging below the button.
 - Scale and Theme sit side by side under the Character & info title, lined up with its left edge. Scale is the left column. Theme is the right. Checking a box shows that column's slider or dropdown.
 - The first time you open the Loose Buttons spellbook tab, the catalog and ribbon stay visible. A reused category button no longer hides them, because the hide hook reads the live tab id.

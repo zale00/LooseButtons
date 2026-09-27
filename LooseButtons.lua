@@ -329,6 +329,10 @@ local function EnsureChrome(button)
 		bottom = Edge(button, "OVERLAY"),
 		left = Edge(button, "OVERLAY"),
 		right = Edge(button, "OVERLAY"),
+		hoverTop = Edge(button, "HIGHLIGHT"),
+		hoverBottom = Edge(button, "HIGHLIGHT"),
+		hoverLeft = Edge(button, "HIGHLIGHT"),
+		hoverRight = Edge(button, "HIGHLIGHT"),
 	}
 	button.lbChrome = chrome
 	return chrome
@@ -345,14 +349,24 @@ local function HideChrome(button)
 	chrome.bottom:Hide()
 	chrome.left:Hide()
 	chrome.right:Hide()
+	chrome.hoverTop:Hide()
+	chrome.hoverBottom:Hide()
+	chrome.hoverLeft:Hide()
+	chrome.hoverRight:Hide()
 end
 
-local function PlaceEdge(tex, parent, a, b, c, d, e, f, g, h, r, gch, bch, alpha)
-	tex:ClearAllPoints()
-	tex:SetPoint(a, parent, b, c, d)
-	tex:SetPoint(e, parent, f, g, h)
-	tex:SetColorTexture(r, gch, bch, alpha)
-	tex:Show()
+local function PlaceRim(button, top, bottom, left, right, rim, r, g, b, a)
+	local function place(tex, p1, rel1, x1, y1, p2, rel2, x2, y2)
+		tex:ClearAllPoints()
+		tex:SetPoint(p1, button, rel1, x1, y1)
+		tex:SetPoint(p2, button, rel2, x2, y2)
+		tex:SetColorTexture(r, g, b, a)
+		tex:Show()
+	end
+	place(top, "TOPLEFT", "TOPLEFT", 0, 0, "BOTTOMRIGHT", "TOPRIGHT", 0, -rim)
+	place(bottom, "TOPLEFT", "BOTTOMLEFT", 0, rim, "BOTTOMRIGHT", "BOTTOMRIGHT", 0, 0)
+	place(left, "TOPLEFT", "TOPLEFT", 0, -rim, "BOTTOMRIGHT", "BOTTOMLEFT", rim, rim)
+	place(right, "TOPLEFT", "TOPRIGHT", -rim, -rim, "BOTTOMRIGHT", "BOTTOMRIGHT", 0, rim)
 end
 
 local function ApplyChrome(button, spec)
@@ -377,16 +391,20 @@ local function ApplyChrome(button, spec)
 		chrome.well:Hide()
 	end
 	if spec.rim > 0 then
-		local rim = spec.rim
-		PlaceEdge(chrome.top, button, "TOPLEFT", "TOPLEFT", 0, 0, "BOTTOMRIGHT", "TOPRIGHT", 0, -rim, spec.rimR, spec.rimG, spec.rimB, spec.rimA)
-		PlaceEdge(chrome.bottom, button, "TOPLEFT", "BOTTOMLEFT", 0, rim, "BOTTOMRIGHT", "BOTTOMRIGHT", 0, 0, spec.rimR, spec.rimG, spec.rimB, spec.rimA)
-		PlaceEdge(chrome.left, button, "TOPLEFT", "TOPLEFT", 0, -rim, "BOTTOMRIGHT", "BOTTOMLEFT", rim, rim, spec.rimR, spec.rimG, spec.rimB, spec.rimA)
-		PlaceEdge(chrome.right, button, "TOPLEFT", "TOPRIGHT", -rim, -rim, "BOTTOMRIGHT", "BOTTOMRIGHT", 0, rim, spec.rimR, spec.rimG, spec.rimB, spec.rimA)
+		PlaceRim(button, chrome.top, chrome.bottom, chrome.left, chrome.right, spec.rim, spec.rimR, spec.rimG, spec.rimB, spec.rimA)
 	else
 		chrome.top:Hide()
 		chrome.bottom:Hide()
 		chrome.left:Hide()
 		chrome.right:Hide()
+	end
+	if spec.hoverA > 0 then
+		PlaceRim(button, chrome.hoverTop, chrome.hoverBottom, chrome.hoverLeft, chrome.hoverRight, spec.rim, spec.hoverR, spec.hoverG, spec.hoverB, spec.hoverA)
+	else
+		chrome.hoverTop:Hide()
+		chrome.hoverBottom:Hide()
+		chrome.hoverLeft:Hide()
+		chrome.hoverRight:Hide()
 	end
 	if button.border then
 		button.border:Hide()
@@ -593,8 +611,12 @@ local function WirePressFeedback(button, frameW, frameH, theme)
 		if button.lbIconPress then
 			button.lbIconPress:Hide()
 		end
+		if button.lbPressFill then
+			button.lbPressFill:Hide()
+		end
 	end
-	if Logic.PressFeedback(theme) ~= "icon" then
+	local feedback = Logic.PressFeedback(theme)
+	if feedback == "frame" then
 		hideGlow()
 		if button.SetPushedAtlas then
 			button:SetPushedAtlas(Logic.STOCK_PUSHED_ATLAS)
@@ -604,6 +626,23 @@ local function WirePressFeedback(button, frameW, frameH, theme)
 			button:SetHighlightAtlas(Logic.STOCK_HIGHLIGHT_ATLAS)
 			FitStockFrame(button:GetHighlightTexture(), frameW, frameH, "highlight")
 		end
+		return
+	end
+	if feedback == "fill" then
+		local spec = Logic.ThemeSpec(theme)
+		hideGlow()
+		if not button.lbPressFill then
+			button.lbPressFill = button:CreateTexture(nil, "OVERLAY")
+		end
+		local fill = button.lbPressFill
+		fill:SetColorTexture(spec.pressR, spec.pressG, spec.pressB, spec.pressA)
+		if button.SetPushedTexture then
+			button:SetPushedTexture(fill)
+		end
+		fill:SetDrawLayer("OVERLAY")
+		fill:ClearAllPoints()
+		fill:SetPoint("TOPLEFT", button, "TOPLEFT", spec.rim, -spec.rim)
+		fill:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -spec.rim, spec.rim)
 		return
 	end
 	local icon = button.icon
@@ -713,6 +752,10 @@ local function PaintThemedFace(button, paint, icon, theme)
 		end
 	end
 	ApplyChrome(button, Logic.ThemeSpec(theme))
+	local crop = Logic.ThemeSpec(theme).crop
+	if crop > 0 and paint.chrome ~= "micro" and button.icon.SetTexCoord then
+		button.icon:SetTexCoord(crop, 1 - crop, crop, 1 - crop)
+	end
 	local _, _, frameW, frameH = ButtonLayout(button)
 	WirePressFeedback(button, frameW, frameH, theme)
 end
@@ -733,6 +776,9 @@ local function PaintFace(button, paint, icon, theme)
 	end
 	if button.lbIconPress then
 		button.lbIconPress:Hide()
+	end
+	if button.lbPressFill then
+		button.lbPressFill:Hide()
 	end
 	if stock and chrome == "micro" then
 		HideChrome(button)
