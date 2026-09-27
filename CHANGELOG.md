@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Edit and Quick Keybind hide the button tooltip and the bind tooltip when bind mode starts, the cursor stays on a button, the cursor leaves, or bind mode ends.
 - Character & info centers its title in the header, and Scale sits closer above Theme.
 - Share and Import dialogs grow to fit their controls, and Share copies the layout string with Copy to Clipboard.
 - Character & info stacks Scale above Theme so the dropdown stays on the parchment, and No plate glows inside the icon instead of an outer frame.

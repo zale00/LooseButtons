@@ -4,7 +4,6 @@ BINDING_HEADER_LOOSEBUTTONSLAUNCHERS = "Loose Buttons Launchers"
 local Logic = LooseButtonsLogic
 local LB = { actions = {}, launchers = {}, catalogButtons = {}, catalogHeaders = {}, snapLines = {}, previewShift = {}, bookCache = {} }
 
-local slot
 for slot = 1, Logic.ACTION_SLOTS do
 	local frameName = Logic.FrameName("spell", slot)
 	_G["BINDING_NAME_" .. Logic.ClickBinding(frameName)] = Logic.BindingLabel("spell", slot)
@@ -1025,8 +1024,20 @@ local function KeybindOpen()
 	return LB.binding or (type(KeybindFrames_InQuickKeybindMode) == "function" and KeybindFrames_InQuickKeybindMode())
 end
 
+local function HideTips()
+	if type(GameTooltip) == "table" and type(GameTooltip.Hide) == "function" then
+		GameTooltip:Hide()
+	end
+	if type(QuickKeybindTooltip) == "table" and type(QuickKeybindTooltip.Hide) == "function" then
+		QuickKeybindTooltip:Hide()
+	end
+end
+
 local function AttachTooltip(button)
 	button:SetScript("OnEnter", function(self)
+		if KeybindOpen() then
+			HideTips()
+		end
 		if self.QuickKeybindButtonOnEnter then
 			self:QuickKeybindButtonOnEnter()
 		end
@@ -1039,9 +1050,7 @@ local function AttachTooltip(button)
 		if self.QuickKeybindButtonOnLeave then
 			self:QuickKeybindButtonOnLeave()
 		end
-		if type(GameTooltip) == "table" and type(GameTooltip.Hide) == "function" then
-			GameTooltip:Hide()
-		end
+		HideTips()
 	end)
 end
 
@@ -1094,6 +1103,7 @@ local function WatchQuickKeybind()
 	LB.quickWatch = true
 	frame:HookScript("OnShow", function()
 		Defer(function()
+			HideTips()
 			SyncQuickKeybind(true)
 		end)
 	end)
@@ -1143,6 +1153,7 @@ keys:SetScript("OnUpdate", function(self)
 	local button = self.button
 	if InCombatLockdown() or not KeybindOpen() or not button or not button:IsVisible() or not button:IsMouseOver() then
 		self:Hide()
+		HideTips()
 	end
 end)
 
@@ -1151,6 +1162,7 @@ local endBindButton = CreateFrame("Button", "LooseButtonsEndBind")
 local function EndBind()
 	LB.binding = nil
 	keys:Hide()
+	HideTips()
 	if type(ClearOverrideBindings) == "function" then
 		ClearOverrideBindings(endBindButton)
 	end
@@ -1169,6 +1181,7 @@ local function ToggleBind()
 		return
 	end
 	LB.binding = true
+	HideTips()
 	if type(SetOverrideBindingClick) == "function" then
 		SetOverrideBindingClick(endBindButton, true, "ESCAPE", endBindButton:GetName(), "LeftButton")
 	end
