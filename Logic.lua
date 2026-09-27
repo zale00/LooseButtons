@@ -1084,6 +1084,7 @@ Logic.THEMES = {
 		hoverA = 0,
 		press = "frame",
 		crop = 0,
+		cooldownInset = 3,
 	},
 	no_plate = {
 		id = "no_plate",
@@ -1096,6 +1097,7 @@ Logic.THEMES = {
 		hoverA = 0,
 		press = "icon",
 		crop = 0,
+		cooldownInset = 3,
 	},
 	elevated_classic = {
 		id = "elevated_classic",
@@ -1109,6 +1111,7 @@ Logic.THEMES = {
 		hoverA = 0,
 		press = "frame",
 		crop = 0,
+		cooldownInset = 3,
 	},
 	glass_lip = {
 		id = "glass_lip",
@@ -1122,6 +1125,7 @@ Logic.THEMES = {
 		hoverA = 0,
 		press = "frame",
 		crop = 0,
+		cooldownInset = 3,
 	},
 	edge = {
 		id = "edge",
@@ -1136,6 +1140,7 @@ Logic.THEMES = {
 		press = "fill",
 		pressR = 0.839, pressG = 0, pressB = 0, pressA = 0.35,
 		crop = 0.08,
+		cooldownInset = 0,
 	},
 }
 

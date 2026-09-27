@@ -477,9 +477,12 @@ local function AnchorCooldown(button)
 	if not cooldown or not icon or not cooldown.ClearAllPoints then
 		return
 	end
+	local record = button.lbKind and Find(button.lbKind, button.lbSlot)
+	local theme = record and ThemeOf(record) or CurrentTheme()
+	local pad = Logic.ThemeSpec(theme).cooldownInset
 	cooldown:ClearAllPoints()
-	cooldown:SetPoint("TOPLEFT", icon, "TOPLEFT", 3, -3)
-	cooldown:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -3, 3)
+	cooldown:SetPoint("TOPLEFT", icon, "TOPLEFT", pad, -pad)
+	cooldown:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -pad, pad)
 end
 
 local function RaiseCooldown(button)
