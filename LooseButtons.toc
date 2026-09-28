@@ -2,11 +2,11 @@
 ## Title: Loose Buttons
 ## Notes: All the buttons. Not a bar.
 ## Author: Loose Buttons
-## Version: 0.1.0
+## Version: 0.1.1
 ## SavedVariables: LooseButtonsDB
 ## X-Flavor: Mainline
 
-# Interface 120100 is not from /dump select(4, GetBuildInfo()). Replace it on the Forever client. Load Out of Date AddOns if the client is newer.
+# 120100 stays so the Forever client loads this addon. The CurseForge upload sends game version 1.60.1. The packager would label 120100 as Mainline 12.1.0, and -g 1.60.1 rewrites this line to 16001.
 
 Logic.lua
 LooseButtons.lua

@@ -1,5 +1,9 @@
 # LooseButtons
 
+## 0.1.1
+
+- CurseForge lists this file as Forever 1.60.1. The TOC interface stays 120100 so the Forever client loads the addon.
+
 ## 0.1.0
 
 - A placed spell button switches to a higher rank of that same spell when you learn it.

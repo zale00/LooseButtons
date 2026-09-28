@@ -120,23 +120,87 @@ rm -f "$files_body"
 git fetch origin "refs/tags/${version}:refs/tags/${version}"
 git checkout --detach "$version"
 
-packager="$(mktemp -d)"
-git clone --depth 1 --branch v2.6.1 https://github.com/BigWigsMods/packager.git "$packager"
+if [[ -n ${PACKAGER_SH:-} ]]; then
+  packager_sh="$PACKAGER_SH"
+else
+  packager="$(mktemp -d)"
+  git clone --depth 1 --branch v2.6.1 https://github.com/BigWigsMods/packager.git "$packager"
+  packager_sh="$packager/release.sh"
+fi
 
-# The packager skips a branch push when a tag already points at HEAD.
+# -d skips the packager upload. Interface 120100 would be sent as retail 12.1.0.
+# -g 1.60.1 aborts on that interface, or rewrites the zip to 16001.
+# The token is unset so the packager cannot upload if -d is dropped.
 log="$(mktemp)"
 set +e
-env -u GITHUB_ACTIONS CF_API_KEY="$CF_API_KEY" bash "$packager/release.sh" -l -p "$project_id" >"$log" 2>&1
+env -u GITHUB_ACTIONS -u CF_API_KEY bash "$packager_sh" -d -l -p "$project_id" >"$log" 2>&1
 status=$?
 set -e
 cat "$log"
-grep -E 'Error|WARNING|Skipping upload|Uploading |Success|not packaging' "$log" | while IFS= read -r line; do
-  say "${line:0:180}"
-done || true
-if [[ "$status" -ne 0 ]] || ! grep -q "Success!" "$log"; then
+if [[ "$status" -ne 0 ]]; then
+  die "packager failed"
+fi
+if grep -q '^Uploading ' "$log"; then
+  die "packager uploaded a file"
+fi
+
+mapfile -t zips < <(find .release -maxdepth 1 -type f -name '*.zip' | sort)
+if [[ ${#zips[@]} -ne 1 ]]; then
+  die "expected one package zip, found ${#zips[@]}"
+fi
+
+versions_body="$(mktemp)"
+versions_code="$(curl -sS -o "$versions_body" -w "%{http_code}" \
+  -H "x-api-token: ${CF_API_KEY}" \
+  -H "Accept: application/json" \
+  "https://wow.curseforge.com/api/game/wow/versions" || true)"
+say "game versions HTTP ${versions_code} /api/game/wow/versions"
+if [[ "$versions_code" == "401" || "$versions_code" == "403" ]]; then
+  die "CF_API_KEY was rejected"
+fi
+if [[ "$versions_code" != "200" ]]; then
+  die "game versions endpoint did not return 200"
+fi
+
+# 88568 is the Forever game version type in BigWigs packager v2.6.1.
+forever_id="$(jq -r --arg name "1.60.1" --argjson type 88568 '
+  [ .[] | select(.name == $name and .gameVersionTypeID == $type) | .id ] | first // empty
+' "$versions_body")"
+if [[ ! "$forever_id" =~ ^[0-9]+$ ]]; then
+  names="$(jq -r --argjson type 88568 '[.[] | select(.gameVersionTypeID == $type) | .name] | join(", ")' "$versions_body" 2>/dev/null || true)"
+  die "CurseForge has no Forever game version 1.60.1. Forever names: ${names:-none}"
+fi
+say "CurseForge game version 1.60.1 id ${forever_id}"
+
+case "${version,,}" in
+  *alpha*) release_type=alpha ;;
+  *beta*) release_type=beta ;;
+  *) release_type=release ;;
+esac
+
+if [[ ! -f CHANGELOG.md ]]; then
+  die "CHANGELOG.md is missing"
+fi
+meta="$(mktemp)"
+jq -n \
+  --arg displayName "$version" \
+  --argjson gameVersion "$forever_id" \
+  --arg releaseType "$release_type" \
+  --rawfile changelog CHANGELOG.md \
+  '{displayName: $displayName, gameVersions: [$gameVersion], releaseType: $releaseType, changelog: $changelog, changelogType: "markdown"}' > "$meta"
+
+result="$(mktemp)"
+upload_code="$(curl -sS -o "$result" -w "%{http_code}" \
+  -H "x-api-token: ${CF_API_KEY}" \
+  -F "metadata=@${meta}" \
+  -F "file=@${zips[0]}" \
+  "https://wow.curseforge.com/api/projects/${project_id}/upload-file" || true)"
+say "upload HTTP ${upload_code}"
+if [[ "$upload_code" != "200" ]]; then
   die "CurseForge upload did not succeed"
 fi
+file_id="$(jq -r '.id // empty' "$result" 2>/dev/null || true)"
 
 git tag "cf-${version}" "$workflow_sha"
 git push origin "refs/tags/cf-${version}"
-say "uploaded ${version}"
+say "uploaded ${version} as Forever 1.60.1 file ${file_id:-unknown}"
