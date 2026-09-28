@@ -95,7 +95,7 @@ chmod +x "$root/curl"
 
 capture="$root/metadata.json"
 set +e
-out="$(cd "$src" && PATH="$root:$PATH" CAPTURE_METADATA="$capture" CF_API_KEY=present CF_PROJECT_ID=1714504 PACKAGER_SH="$root/release.sh" bash "$script" 2>&1)"
+out="$(cd "$src" && env -u GITHUB_SHA -u GITHUB_REF -u GITHUB_REF_NAME PATH="$root:$PATH" CAPTURE_METADATA="$capture" CF_API_KEY=present CF_PROJECT_ID=1714504 PACKAGER_SH="$root/release.sh" bash "$script" 2>&1)"
 status=$?
 set -e
 printf '%s\n' "$out"
