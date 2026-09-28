@@ -2,7 +2,7 @@
 ## Title: Loose Buttons
 ## Notes: All the buttons. Not a bar.
 ## Author: Loose Buttons
-## Version: 0.1.1
+## Version: 0.1.2
 ## SavedVariables: LooseButtonsDB
 ## X-Flavor: Mainline
 

@@ -1,8 +1,14 @@
 # LooseButtons
 
+## 0.1.2
+
+- Login shows the layout that character last left on. A character with no saved row still starts Blank.
+- Edit can bind a loose button to a mouse button past Right, the wheel, or a controller button the game already reports, including a paddle such as PADPADDLE1. The wheel stays off until Edit is open.
+- Each character keeps its own loose-button keys. A hover bind writes that character's keys, and the Blizzard Key Bindings window does too. A character with no saved keys starts clear.
+- Spellbook and game-menu launchers open from a secure click, so Edit Mode and the spellbook no longer taint ClearTarget, SetWidth, or the pet bar.
+
 ## 0.1.1
 
-- Edit can bind a loose button to a mouse button past Right, the wheel, or a controller button the game already reports, including a paddle such as PADPADDLE1. The wheel stays off until Edit is open.
 - CurseForge lists this file as Forever 1.60.1. The TOC interface stays 120100 so the Forever client loads the addon.
 
 ## 0.1.0
