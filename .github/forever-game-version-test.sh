@@ -113,4 +113,91 @@ assert meta["gameVersions"] == [99901], meta
 assert meta["releaseType"] == "release"
 print("gameVersions", meta["gameVersions"])
 PY
+
+root2="$(mktemp -d)"
+bare2="$root2/origin.git"
+src2="$root2/src"
+git init --bare -q "$bare2"
+git init -q -b main "$src2"
+git -C "$src2" config user.email "t@example.com"
+git -C "$src2" config user.name "t"
+cat > "$src2/LooseButtons.toc" << 'EOF'
+## Interface: 120100
+## Title: Loose Buttons
+## Version: 0.1.1
+## X-Flavor: Mainline
+Logic.lua
+EOF
+printf 'return {}\n' > "$src2/Logic.lua"
+printf 'package-as: LooseButtons\n' > "$src2/.pkgmeta"
+printf '# LooseButtons\n\n## 0.1.1\n\n- Forever 1.60.1.\n' > "$src2/CHANGELOG.md"
+git -C "$src2" add LooseButtons.toc Logic.lua .pkgmeta CHANGELOG.md
+git -C "$src2" commit -q -m "init"
+git -C "$src2" remote add origin "$bare2"
+git -C "$src2" push -q -u origin main
+git -C "$src2" tag 0.1.1
+git -C "$src2" push -q origin refs/tags/0.1.1
+
+cat > "$root2/release.sh" << 'EOF'
+#!/usr/bin/env bash
+mkdir -p .release
+printf 'zip' > .release/LooseButtons-0.1.1.zip
+exit 0
+EOF
+chmod +x "$root2/release.sh"
+
+cat > "$root2/curl" << 'EOF'
+#!/usr/bin/env bash
+url=""
+outfile=""
+write_out=""
+prev=""
+for arg in "$@"; do
+  case "$prev" in
+    -o) outfile="$arg" ;;
+    -w) write_out="$arg" ;;
+  esac
+  prev="$arg"
+  case "$arg" in
+    http*) url="$arg" ;;
+  esac
+done
+body='[{"id":11101,"gameVersionTypeID":517,"name":"12.1.0"}]'
+if [[ "$url" == *"/files"* && "$url" != *"/upload-file" ]]; then
+  body='[]'
+fi
+if [[ "$url" == *"/upload-file" ]]; then
+  printf 'upload\n' > "${CAPTURE_METADATA:?}"
+  exit 9
+fi
+if [[ -n "$outfile" && "$outfile" != "/dev/null" ]]; then
+  printf '%s' "$body" > "$outfile"
+fi
+if [[ -n "$write_out" ]]; then
+  printf '200'
+elif [[ -z "$outfile" || "$outfile" == "/dev/null" ]]; then
+  printf '%s' "$body"
+fi
+EOF
+chmod +x "$root2/curl"
+
+capture2="$root2/metadata.json"
+set +e
+out2="$(cd "$src2" && env -u GITHUB_SHA -u GITHUB_REF -u GITHUB_REF_NAME PATH="$root2:$PATH" CAPTURE_METADATA="$capture2" CF_API_KEY=present CF_PROJECT_ID=1714504 PACKAGER_SH="$root2/release.sh" bash "$script" 2>&1)"
+status2=$?
+set -e
+if [[ "$status2" -eq 0 ]]; then
+  printf '%s\n' "$out2" >&2
+  echo "retail-only versions should fail" >&2
+  exit 1
+fi
+if [[ -e "$src2/.release/LooseButtons-0.1.1.zip" ]]; then
+  echo "packager ran before the Forever version check" >&2
+  exit 1
+fi
+if [[ -e "$capture2" ]]; then
+  echo "upload metadata was captured" >&2
+  exit 1
+fi
+
 echo ok

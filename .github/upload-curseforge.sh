@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Interface 120100 makes the packager send retail 12.1.0, so this script never uses the packager's game version.
+forever_name=1.60.1
+forever_type=88568
+retail_name=12.1.0
+retail_type=517
+
 say() {
   echo "$1"
   echo "::notice::$1"
@@ -100,6 +106,33 @@ if [[ ! "$project_id" =~ ^[0-9]+$ ]]; then
 fi
 say "using project ${project_id}"
 
+versions_body="$(mktemp)"
+versions_code="$(curl -sS -o "$versions_body" -w "%{http_code}" \
+  -H "x-api-token: ${CF_API_KEY}" \
+  -H "Accept: application/json" \
+  "https://wow.curseforge.com/api/game/wow/versions" || true)"
+say "game versions HTTP ${versions_code} /api/game/wow/versions"
+if [[ "$versions_code" == "401" || "$versions_code" == "403" ]]; then
+  die "CF_API_KEY was rejected"
+fi
+if [[ "$versions_code" != "200" ]]; then
+  die "game versions endpoint did not return 200"
+fi
+
+forever_id="$(jq -r --arg name "$forever_name" --argjson type "$forever_type" '
+  [ .[] | select(.name == $name and .gameVersionTypeID == $type) | .id ] | first // empty
+' "$versions_body")"
+if [[ ! "$forever_id" =~ ^[0-9]+$ ]]; then
+  die "CurseForge has no Forever game version ${forever_name} type ${forever_type}"
+fi
+read_name="$(jq -r --argjson id "$forever_id" '[.[] | select(.id == $id)] | first | .name // empty' "$versions_body")"
+read_type="$(jq -r --argjson id "$forever_id" '[.[] | select(.id == $id)] | first | .gameVersionTypeID // empty' "$versions_body")"
+if [[ "$read_name" == "$retail_name" || "$read_type" == "$retail_type" || "$read_name" != "$forever_name" || "$read_type" != "$forever_type" ]]; then
+  die "refusing CurseForge game version ${read_name:-missing} type ${read_type:-missing}"
+fi
+rm -f "$versions_body"
+say "CurseForge game version ${forever_name} id ${forever_id}"
+
 files_body="$(mktemp)"
 files_code="$(curl -sS -o "$files_body" -w "%{http_code}" \
   -H "x-api-token: ${CF_API_KEY}" \
@@ -128,9 +161,7 @@ else
   packager_sh="$packager/release.sh"
 fi
 
-# -d skips the packager upload. Interface 120100 would be sent as retail 12.1.0.
-# -g 1.60.1 aborts on that interface, or rewrites the zip to 16001.
-# The token is unset so the packager cannot upload if -d is dropped.
+# -d skips the packager upload. The token is unset so the packager cannot upload if -d is dropped.
 log="$(mktemp)"
 set +e
 env -u GITHUB_ACTIONS -u CF_API_KEY bash "$packager_sh" -d -l -p "$project_id" >"$log" 2>&1
@@ -148,29 +179,6 @@ mapfile -t zips < <(find .release -maxdepth 1 -type f -name '*.zip' | sort)
 if [[ ${#zips[@]} -ne 1 ]]; then
   die "expected one package zip, found ${#zips[@]}"
 fi
-
-versions_body="$(mktemp)"
-versions_code="$(curl -sS -o "$versions_body" -w "%{http_code}" \
-  -H "x-api-token: ${CF_API_KEY}" \
-  -H "Accept: application/json" \
-  "https://wow.curseforge.com/api/game/wow/versions" || true)"
-say "game versions HTTP ${versions_code} /api/game/wow/versions"
-if [[ "$versions_code" == "401" || "$versions_code" == "403" ]]; then
-  die "CF_API_KEY was rejected"
-fi
-if [[ "$versions_code" != "200" ]]; then
-  die "game versions endpoint did not return 200"
-fi
-
-# 88568 is the Forever game version type in BigWigs packager v2.6.1.
-forever_id="$(jq -r --arg name "1.60.1" --argjson type 88568 '
-  [ .[] | select(.name == $name and .gameVersionTypeID == $type) | .id ] | first // empty
-' "$versions_body")"
-if [[ ! "$forever_id" =~ ^[0-9]+$ ]]; then
-  names="$(jq -r --argjson type 88568 '[.[] | select(.gameVersionTypeID == $type) | .name] | join(", ")' "$versions_body" 2>/dev/null || true)"
-  die "CurseForge has no Forever game version 1.60.1. Forever names: ${names:-none}"
-fi
-say "CurseForge game version 1.60.1 id ${forever_id}"
 
 case "${version,,}" in
   *alpha*) release_type=alpha ;;
