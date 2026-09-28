@@ -188,86 +188,9 @@ local function Describe(record)
 end
 
 local CLICK = {
-	character = function()
-		ToggleCharacter("PaperDollFrame")
-	end,
-	spellbook = function()
-		if PlayerSpellsUtil and PlayerSpellsUtil.ToggleSpellBookFrame then
-			PlayerSpellsUtil.ToggleSpellBookFrame()
-		end
-	end,
-	talents = function()
-		if PlayerSpellsUtil and PlayerSpellsUtil.ToggleClassTalentOrSpecFrame then
-			PlayerSpellsUtil.ToggleClassTalentOrSpecFrame()
-		end
-	end,
-	professions = function()
-		if ToggleProfessionsBook then
-			ToggleProfessionsBook()
-		end
-	end,
 	legacy = function()
 		if ToggleLegacySystemUI then
 			ToggleLegacySystemUI()
-		end
-	end,
-	quest = function()
-		if ToggleQuestLog then
-			ToggleQuestLog()
-		end
-	end,
-	guild = function()
-		if ToggleGuildFrame then
-			ToggleGuildFrame()
-		end
-	end,
-	collections = function()
-		if ToggleCollectionsJournal then
-			ToggleCollectionsJournal()
-		end
-	end,
-	backpack = function()
-		if ToggleBackpack then
-			ToggleBackpack()
-		end
-	end,
-	bags = function()
-		if ToggleAllBags then
-			ToggleAllBags()
-		end
-	end,
-	gamemenu = function()
-		if InCombatLockdown() then
-			return
-		end
-		if GameMenuFrame_IsShown and GameMenuFrame_IsShown() then
-			if HideUIPanel then
-				HideUIPanel(GameMenuFrame)
-			end
-			return
-		end
-		if GameMenuFrame_Show then
-			GameMenuFrame_Show()
-		end
-	end,
-	finder = function()
-		if ToggleGroupFinderFrame then
-			ToggleGroupFinderFrame()
-		end
-	end,
-	achievements = function()
-		if ToggleAchievementFrame then
-			ToggleAchievementFrame()
-		end
-	end,
-	journal = function()
-		if ToggleEncounterJournal then
-			ToggleEncounterJournal()
-		end
-	end,
-	housing = function()
-		if HousingFramesUtil and HousingFramesUtil.ToggleHousingDashboard then
-			HousingFramesUtil.ToggleHousingDashboard()
 		end
 	end,
 }
@@ -1115,8 +1038,12 @@ local function SyncQuickKeybind(show)
 			if button and button.UpdateMouseWheelHandler then
 				button:UpdateMouseWheelHandler()
 			end
-			if show and button and button.lbKind ~= "launcher" and not InCombatLockdown() then
-				button:SetAttribute("type", "")
+			if show and button and not InCombatLockdown() then
+				if button.lbKind == "launcher" then
+					button:SetAttribute("type1", nil)
+				else
+					button:SetAttribute("type", "")
+				end
 			end
 		end
 	end
@@ -1447,6 +1374,98 @@ ApplyRecordCooldown = function(button, record)
 	end
 end
 
+function LB.EnsurePanelProxy(click)
+	local name = Logic.PANEL_PROXY[click]
+	if not name then
+		return nil
+	end
+	local proxy = _G[name]
+	if not proxy and not InCombatLockdown() then
+		proxy = CreateFrame("Button", name, UIParent, "SecureHandlerClickTemplate")
+		proxy:SetAttribute("_onclick", Logic.PanelToggleSnippet)
+		proxy:Hide()
+	end
+	if not proxy or InCombatLockdown() or not proxy.SetFrameRef then
+		return proxy
+	end
+	local panel
+	if click == "gamemenu" then
+		panel = GameMenuFrame
+	else
+		if C_AddOns and C_AddOns.LoadAddOn then
+			C_AddOns.LoadAddOn("Blizzard_PlayerSpells")
+		end
+		panel = PlayerSpellsFrame
+	end
+	if not panel then
+		return proxy
+	end
+	proxy:SetFrameRef("panel", panel)
+	if click == "gamemenu" then
+		return proxy
+	end
+	local function isFrame(value)
+		local kind = type(value)
+		return kind == "table" or kind == "userdata"
+	end
+	if isFrame(panel.SpellBookFrame) then
+		proxy:SetFrameRef("book", panel.SpellBookFrame)
+	end
+	if isFrame(panel.TalentsFrame) then
+		proxy:SetFrameRef("talents", panel.TalentsFrame)
+	end
+	if isFrame(panel.SpecFrame) then
+		proxy:SetFrameRef("spec", panel.SpecFrame)
+	end
+	local page = panel.SpellBookFrame
+	if click == "talents" then
+		page = panel.TalentsFrame
+		if not isFrame(page) then
+			page = panel.SpecFrame
+		end
+	end
+	if isFrame(page) then
+		proxy:SetFrameRef("page", page)
+	end
+	proxy:SetAttribute("escape", true)
+	if not proxy.lbHideWrapped and proxy.WrapScript then
+		proxy:WrapScript(panel, "OnHide", Logic.PanelHidePre, Logic.PanelHideSnippet)
+		proxy.lbHideWrapped = true
+	elseif not proxy.lbHideWrapped and SecureHandlerWrapScript then
+		SecureHandlerWrapScript(panel, "OnHide", proxy, Logic.PanelHidePre, Logic.PanelHideSnippet)
+		proxy.lbHideWrapped = true
+	end
+	return proxy
+end
+
+function LB.WireLauncher(button, record)
+	if not button or not button.SetAttribute or InCombatLockdown() then
+		return
+	end
+	if KeybindOpen() then
+		button:SetAttribute("type1", nil)
+		button:SetAttribute("clickbutton1", nil)
+		return
+	end
+	local spec = Logic.LauncherByCommand(record.payload)
+	local click = spec and spec.click
+	local microName = click and Logic.MICRO_CLICK[click]
+	local micro = microName and _G[microName]
+	if micro then
+		button:SetAttribute("type1", "click")
+		button:SetAttribute("clickbutton1", micro)
+		return
+	end
+	local proxy = click and LB.EnsurePanelProxy(click)
+	if proxy then
+		button:SetAttribute("type1", "click")
+		button:SetAttribute("clickbutton1", proxy)
+		return
+	end
+	button:SetAttribute("type1", nil)
+	button:SetAttribute("clickbutton1", nil)
+end
+
 local function Configure(button, record)
 	if not button or InCombatLockdown() then
 		return
@@ -1462,6 +1481,7 @@ local function Configure(button, record)
 		record.portrait = paint.portrait and true or nil
 		button:SetSize(Logic.ButtonExtent(record, ScaleOf(record)))
 		PaintFace(button, paint, nil, ThemeOf(record))
+		LB.WireLauncher(button, record)
 	else
 		button:SetSize(Logic.ButtonExtent(record, ScaleOf(record)))
 		if record.kind == "spell" then
@@ -1962,12 +1982,18 @@ BeginDrag = function(button)
 	end
 	local cx, cy = CursorCenter()
 	local savedType
-	if button.lbKind ~= "launcher" and button.GetAttribute and button.SetAttribute then
-		savedType = button:GetAttribute("type")
+	local savedAttr = "type"
+	if button.lbKind == "launcher" then
+		savedAttr = "type1"
+	end
+	if button.GetAttribute and button.SetAttribute then
+		savedType = button:GetAttribute(savedAttr)
 		if type(savedType) ~= "string" or savedType == "" then
 			savedType = nil
+		elseif button.lbKind == "launcher" then
+			button:SetAttribute(savedAttr, nil)
 		else
-			button:SetAttribute("type", "")
+			button:SetAttribute(savedAttr, "")
 		end
 	end
 	LB.suppressClick = true
@@ -1986,6 +2012,7 @@ BeginDrag = function(button)
 		lastX = record.x,
 		lastY = record.y,
 		savedType = savedType,
+		savedAttr = savedAttr,
 	}
 	FollowDrag(LB.moving)
 	StartSnapWatch()
@@ -2005,6 +2032,7 @@ FinishDrag = function(button)
 	LB.moving = nil
 	LB.press = nil
 	local savedType = moving.savedType
+	local savedAttr = moving.savedAttr or "type"
 	local leader = moving.leader
 	Defer(function()
 		LB.suppressClick = nil
@@ -2012,10 +2040,10 @@ FinishDrag = function(button)
 			return
 		end
 		if InCombatLockdown() then
-			LB.pendingDragType = { button = leader, savedType = savedType }
+			LB.pendingDragType = { button = leader, savedType = savedType, savedAttr = savedAttr }
 			return
 		end
-		leader:SetAttribute("type", savedType)
+		leader:SetAttribute(savedAttr, savedType)
 	end)
 	if InCombatLockdown() then
 		return
@@ -2129,6 +2157,14 @@ local function WireDrag(button)
 	end)
 	if button.HookScript then
 		button:HookScript("OnClick", function(self, mouseButton, down)
+			if self.lbKind == "launcher" and mouseButton == "LeftButton" and not down and not LB.suppressClick and not KeybindOpen() then
+				if not self.GetAttribute or self:GetAttribute("type1") ~= "click" then
+					local record = Find("launcher", self.lbSlot)
+					if record then
+						RunLauncher(record)
+					end
+				end
+			end
 			if not down then
 				self:QuickKeybindButtonOnClick(mouseButton)
 			end
@@ -2167,27 +2203,12 @@ local function EnsurePool()
 	end
 	for i = 1, Logic.LAUNCHER_SLOTS do
 		local name = Logic.FrameName("launcher", i)
-		local button = NewFace(UIParent, name, nil)
+		local button = NewFace(UIParent, name, "SecureActionButtonTemplate")
 		button:SetSize(32, 40)
 		button:Hide()
 		button:RegisterForClicks(Logic.ClickRegistration("launcher"))
 		button.lbKind = "launcher"
 		button.lbSlot = i
-		button:SetScript("OnClick", function(self, mouseButton)
-			if mouseButton ~= "LeftButton" then
-				return
-			end
-			if LB.suppressClick then
-				return
-			end
-			if KeybindOpen() then
-				return
-			end
-			local record = Find("launcher", self.lbSlot)
-			if record then
-				RunLauncher(record)
-			end
-		end)
 		WireDrag(button)
 		AttachTooltip(button)
 		LB.launchers[i] = button
@@ -3943,31 +3964,15 @@ local function WatchTabButton(book, button, tabID, watchedButtons)
 			end
 		end)
 	end
-	if type(button.SetScript) ~= "function" then
+	if type(button.HookScript) ~= "function" then
 		return
 	end
-	local setScript = button.SetScript
-	local function clickThenHide(handler)
-		return function(self, ...)
-			handler(self, ...)
-			local id = liveID(self)
-			if id ~= LB.tabID then
-				HideForOtherTab(book, id)
-			end
+	button:HookScript("OnClick", function(self)
+		local id = liveID(self)
+		if id ~= LB.tabID then
+			HideForOtherTab(book, id)
 		end
-	end
-	button.SetScript = function(self, script, handler)
-		if script == "OnClick" and type(handler) == "function" then
-			return setScript(self, script, clickThenHide(handler))
-		end
-		return setScript(self, script, handler)
-	end
-	if type(button.GetScript) == "function" then
-		local current = button:GetScript("OnClick")
-		if type(current) == "function" then
-			button:SetScript("OnClick", current)
-		end
-	end
+	end)
 end
 
 local function WatchTabButtons(book, tabs, watchedButtons)
@@ -3992,8 +3997,26 @@ local function WatchTabSelection(book)
 	end
 	LB.tabWatched = true
 	local watchedButtons = {}
+	LB.SyncCatalog = function(owner, tabID)
+		if tabID == LB.tabID then
+			if owner.isUpdatingAllSpellData then
+				if LB.wantCatalog then
+					ShowCatalog(owner)
+				end
+				return
+			end
+			LB.wantCatalog = true
+			ShowCatalog(owner)
+			return
+		end
+		if owner.isUpdatingAllSpellData then
+			return
+		end
+		LB.wantCatalog = false
+		HideCatalog(owner)
+	end
 	local function follow(_, tabID)
-		HideForOtherTab(book, tabID)
+		LB.SyncCatalog(book, tabID)
 	end
 	if type(tabs.SetTab) == "function" then
 		hooksecurefunc(tabs, "SetTab", follow)
@@ -4009,37 +4032,8 @@ local function WatchTabSelection(book)
 	WatchTabButtons(book, tabs, watchedButtons)
 end
 
-local function BindCatalogTab(book, tabID)
-	if LB.tabID and LB.tabID ~= tabID then
-		if book.SetTabCallback then
-			book:SetTabCallback(LB.tabID, nil)
-		end
-		if book.SetTabDeselectCallback then
-			book:SetTabDeselectCallback(LB.tabID, nil)
-		end
-	end
+local function BindCatalogTab(_, tabID)
 	LB.tabID = tabID
-	if book.SetTabCallback then
-		book:SetTabCallback(tabID, function()
-			if book.isUpdatingAllSpellData then
-				if LB.wantCatalog then
-					ShowCatalog(book)
-				end
-				return
-			end
-			LB.wantCatalog = true
-			ShowCatalog(book)
-		end)
-	end
-	if book.SetTabDeselectCallback then
-		book:SetTabDeselectCallback(tabID, function()
-			if book.isUpdatingAllSpellData then
-				return
-			end
-			LB.wantCatalog = false
-			HideCatalog(book)
-		end)
-	end
 end
 
 local function HideUnavailableTabs(book)
@@ -4095,34 +4089,29 @@ local function HookBook()
 	end)
 	if type(book.UpdateDisplayedSpells) == "function" then
 		hooksecurefunc(book, "UpdateDisplayedSpells", function(self)
-			if LB.wantCatalog then
+			if LB.wantCatalog and self.GetTab and self:GetTab() == LB.tabID then
 				ClearBlizzardPage(self)
 			end
 		end)
 	end
 	if type(book.UpdateAllSpellData) == "function" then
 		hooksecurefunc(book, "UpdateAllSpellData", function(self)
-			if LB.wantCatalog and LB.tabID and self.GetTab and self:GetTab() ~= LB.tabID then
-				if type(securecall) == "function" then
-					securecall(self.SetTab, self, LB.tabID)
-				else
-					self:SetTab(LB.tabID)
-				end
-			elseif not LB.wantCatalog and LB.tabID and self.GetTab and self:GetTab() == LB.tabID then
-				HideCatalog(self)
-				if type(self.ResetToFirstAvailableTab) == "function" then
-					if type(securecall) == "function" then
-						securecall(self.ResetToFirstAvailableTab, self)
-					else
-						self:ResetToFirstAvailableTab()
-					end
-				end
-			elseif LB.page and LB.page.IsShown and LB.page:IsShown() then
-				LayoutCatalog(nil, true)
+			if LB.wantCatalog and LB.tabID and self.GetTab and self:GetTab() == LB.tabID then
+				ShowCatalog(self)
+			elseif CatalogUp() and self.GetTab and LB.tabID and self:GetTab() ~= LB.tabID then
+				HideLooseChrome()
 			end
 		end)
 	end
 	WatchTabSelection(book)
+	if type(book.SetTab) == "function" and not LB.bookTabHooked then
+		LB.bookTabHooked = true
+		hooksecurefunc(book, "SetTab", function(self, tabID)
+			if LB.SyncCatalog then
+				LB.SyncCatalog(self, tabID)
+			end
+		end)
+	end
 	book:CreateCategoryMixins()
 end
 
@@ -4209,7 +4198,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 			local pendingType = LB.pendingDragType
 			LB.pendingDragType = nil
 			if pendingType.button and pendingType.button.SetAttribute then
-				pendingType.button:SetAttribute("type", pendingType.savedType)
+				pendingType.button:SetAttribute(pendingType.savedAttr or "type", pendingType.savedType)
 			end
 		end
 		return

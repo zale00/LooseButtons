@@ -64,6 +64,73 @@ Logic.EXTRA_LAUNCHERS = {
 	{ command = "TOGGLEGROUPFINDER", name = "Group finder", section = "Character & info", chrome = "micro", atlas = "Groupfinder", click = "finder" },
 }
 
+Logic.MICRO_CLICK = {
+	character = "CharacterMicroButton",
+	professions = "ProfessionMicroButton",
+	quest = "QuestLogMicroButton",
+	guild = "GuildMicroButton",
+	collections = "CollectionsMicroButton",
+	achievements = "AchievementMicroButton",
+	journal = "EJMicroButton",
+	housing = "HousingMicroButton",
+	finder = "LFDMicroButton",
+	backpack = "MainMenuBarBackpackButton",
+}
+
+-- These panels have no safe micro click. MainMenuMicroButton bails out
+-- unless the cursor is over it, and PlayerSpellsMicroButton cannot choose
+-- the spellbook tab without a tainted field write.
+Logic.PANEL_PROXY = {
+	gamemenu = "LooseButtonsGameMenuProxy",
+	spellbook = "LooseButtonsSpellbookProxy",
+	talents = "LooseButtonsTalentsProxy",
+}
+
+Logic.PanelToggleSnippet = [=[
+if button ~= "LeftButton" or down then
+  return
+end
+local panel = self:GetFrameRef("panel")
+if not panel then
+  return
+end
+local page = self:GetFrameRef("page")
+local open = panel:IsShown()
+local switch = open and page and not page:IsShown()
+if open and not switch then
+  panel:Hide()
+  self:ClearBindings()
+  return
+end
+if not open and PlayerInCombat() then
+  return
+end
+if not open then
+  panel:Show()
+end
+if page then
+  local book = self:GetFrameRef("book")
+  local talents = self:GetFrameRef("talents")
+  local spec = self:GetFrameRef("spec")
+  if book and book ~= page then
+    book:Hide()
+  end
+  if talents and talents ~= page then
+    talents:Hide()
+  end
+  if spec and spec ~= page then
+    spec:Hide()
+  end
+  page:Show()
+end
+if self:GetAttribute("escape") then
+  self:SetBindingClick(true, "ESCAPE", self, "LeftButton")
+end
+]=]
+
+Logic.PanelHidePre = "return true, true"
+Logic.PanelHideSnippet = "control:ClearBindings()"
+
 function Logic.Pool(kind)
 	if kind == "launcher" then
 		return "launcher"
