@@ -2094,6 +2094,131 @@ function Logic.Layouts.Delete(account, key, name, lockdown)
 	return "cleared", nil
 end
 
+local ownedCommand = {}
+local ownedCommandList = {}
+
+local function ownCommand(kind, slot)
+	local command = Logic.ClickBinding(Logic.FrameName(kind, slot))
+	ownedCommand[command] = true
+	ownedCommandList[#ownedCommandList + 1] = command
+end
+
+do
+	local slot
+	for slot = 1, Logic.ACTION_SLOTS do
+		ownCommand("spell", slot)
+	end
+	for slot = 1, Logic.LAUNCHER_SLOTS do
+		ownCommand("launcher", slot)
+	end
+end
+
+local function bindToken(token)
+	if type(token) ~= "string" or token == "" or token == "CLEAR" then
+		return nil
+	end
+	if string.find(token, "%c") or string.find(token, " ", 1, true) then
+		return nil
+	end
+	return token
+end
+
+Logic.Binds = {}
+
+function Logic.Binds.Commands()
+	return ownedCommandList
+end
+
+function Logic.Binds.Read(account, key)
+	local out = {}
+	if not validKey(account, key) or type(account.chars) ~= "table" then
+		return out
+	end
+	local row = account.chars[key]
+	if type(row) ~= "table" or type(row.binds) ~= "table" then
+		return out
+	end
+	local i
+	for i = 1, #ownedCommandList do
+		local command = ownedCommandList[i]
+		local token = bindToken(row.binds[command])
+		if token then
+			out[command] = token
+		end
+	end
+	return out
+end
+
+function Logic.Binds.Put(account, key, command, token)
+	if not validKey(account, key) or not ownedCommand[command] then
+		return false
+	end
+	local clean = bindToken(token)
+	if token ~= nil and token ~= "CLEAR" and not clean then
+		return false
+	end
+	local row = charRow(account, key)
+	if type(row.binds) ~= "table" then
+		row.binds = {}
+	end
+	local other, bound
+	for other, bound in pairs(row.binds) do
+		if other == command or (clean and bound == clean) then
+			row.binds[other] = nil
+		end
+	end
+	if clean then
+		row.binds[command] = clean
+	end
+	return true
+end
+
+function Logic.Binds.Reconcile(saved, live)
+	local desired = {}
+	local i
+	for i = 1, #ownedCommandList do
+		local command = ownedCommandList[i]
+		local token = type(saved) == "table" and bindToken(saved[command]) or nil
+		if token and not desired[token] then
+			desired[token] = command
+		end
+	end
+	local current = {}
+	if type(live) == "table" then
+		for i = 1, #live do
+			local row = live[i]
+			if type(row) == "table" and ownedCommand[row.command] and bindToken(row.key) then
+				current[row.key] = row.command
+			end
+		end
+	end
+	local unbind = {}
+	local bind = {}
+	local key, command
+	for key, command in pairs(current) do
+		if desired[key] ~= command then
+			unbind[#unbind + 1] = key
+		end
+	end
+	for key, command in pairs(desired) do
+		if current[key] ~= command then
+			bind[#bind + 1] = { key = key, command = command }
+		end
+	end
+	table.sort(unbind)
+	table.sort(bind, function(a, b)
+		return a.key < b.key
+	end)
+	local ops = {}
+	for i = 1, #unbind do
+		ops[#ops + 1] = { key = unbind[i] }
+	end
+	for i = 1, #bind do
+		ops[#ops + 1] = bind[i]
+	end
+	return ops
+end
+
 Logic.ShareCodec = {}
 
 local SHARE_PREFIX = "LB1!"
