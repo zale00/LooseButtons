@@ -14,10 +14,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  tag:
+  release:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: Tag the TOC version
         run: bash .github/tag-release.sh
+
+      - name: Upload to CurseForge
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+        run: |
+          cp .github/upload-curseforge.sh /tmp/upload-curseforge.sh
+          bash /tmp/upload-curseforge.sh
