@@ -48,7 +48,10 @@ if [[ "$accepted" -ne 1 ]]; then
   die "game versions endpoint did not return 200"
 fi
 
-project_id="$(sed -n 's/^## X-Curse-Project-ID:[[:space:]]*\([0-9][0-9]*\).*/\1/p' LooseButtons.toc | head -n 1 | tr -d '\r')"
+project_id="${CF_PROJECT_ID:-}"
+if [[ -z "$project_id" ]]; then
+  project_id="$(sed -n 's/^## X-Curse-Project-ID:[[:space:]]*\([0-9][0-9]*\).*/\1/p' LooseButtons.toc | head -n 1 | tr -d '\r')"
+fi
 if [[ -z "$project_id" ]]; then
   project_id="$(
     discover_ids() {

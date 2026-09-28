@@ -29,6 +29,7 @@ jobs:
       - name: Upload to CurseForge
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          CF_PROJECT_ID: "1714504"
         run: |
           cp .github/upload-curseforge.sh /tmp/upload-curseforge.sh
           bash /tmp/upload-curseforge.sh
