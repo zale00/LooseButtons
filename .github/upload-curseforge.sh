@@ -192,11 +192,13 @@ jq -n \
 result="$(mktemp)"
 upload_code="$(curl -sS -o "$result" -w "%{http_code}" \
   -H "x-api-token: ${CF_API_KEY}" \
-  -F "metadata=@${meta}" \
+  -F "metadata=<${meta}" \
   -F "file=@${zips[0]}" \
   "https://wow.curseforge.com/api/projects/${project_id}/upload-file" || true)"
 say "upload HTTP ${upload_code}"
 if [[ "$upload_code" != "200" ]]; then
+  body="$(head -c 300 "$result" | tr '\n' ' ' || true)"
+  say "upload body ${body}"
   die "CurseForge upload did not succeed"
 fi
 file_id="$(jq -r '.id // empty' "$result" 2>/dev/null || true)"

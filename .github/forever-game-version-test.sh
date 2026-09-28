@@ -55,6 +55,8 @@ for arg in "$@"; do
     -F)
       if [[ "$arg" == "metadata=<-" ]]; then
         meta_stdin=1
+      elif [[ "$arg" == metadata=\<* ]]; then
+        meta_file="${arg#metadata=<}"
       elif [[ "$arg" == metadata=@* ]]; then
         meta_file="${arg#metadata=@}"
       elif [[ "$arg" == metadata=* ]]; then
