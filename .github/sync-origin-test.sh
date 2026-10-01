@@ -25,16 +25,20 @@ git -C "$origin" commit -q -m "origin"
 printf 'keep-bytes-7f3a\n' > "$dest/.github/keep.sh"
 printf 'pkgmeta-bytes-91c2\n' > "$dest/.pkgmeta"
 printf 'changelog-bytes-44de\n' > "$dest/CHANGELOG.md"
+printf 'agents-bytes-3c11\n' > "$dest/AGENTS.md"
+printf 'luacheckrc-bytes-8e20\n' > "$dest/.luacheckrc"
 printf 'old\n' > "$dest/Logic.lua"
 printf 'stale\n' > "$dest/Old.lua"
 printf '## Version: 0.1.1\n' > "$dest/LooseButtons.toc"
 cp "$dest/.github/keep.sh" "$saved/keep.sh"
 cp "$dest/.pkgmeta" "$saved/.pkgmeta"
 cp "$dest/CHANGELOG.md" "$saved/CHANGELOG.md"
+cp "$dest/AGENTS.md" "$saved/AGENTS.md"
+cp "$dest/.luacheckrc" "$saved/.luacheckrc"
 git init -q -b main "$dest"
 git -C "$dest" config user.email "t@example.com"
 git -C "$dest" config user.name "t"
-git -C "$dest" add .github/keep.sh .pkgmeta CHANGELOG.md Logic.lua Old.lua LooseButtons.toc
+git -C "$dest" add .github/keep.sh .pkgmeta CHANGELOG.md AGENTS.md .luacheckrc Logic.lua Old.lua LooseButtons.toc
 git -C "$dest" commit -q -m "dest"
 
 set +e
@@ -49,6 +53,8 @@ cmp "$dest/Logic.lua" "$origin/LooseButtons/Logic.lua"
 cmp "$dest/.github/keep.sh" "$saved/keep.sh"
 cmp "$dest/.pkgmeta" "$saved/.pkgmeta"
 cmp "$dest/CHANGELOG.md" "$saved/CHANGELOG.md"
+cmp "$dest/AGENTS.md" "$saved/AGENTS.md"
+cmp "$dest/.luacheckrc" "$saved/.luacheckrc"
 if [[ -e "$dest/Old.lua" ]]; then
   echo "Old.lua still present" >&2
   exit 1
@@ -72,7 +78,7 @@ while IFS= read -r line; do
   if [[ $line == "Logic.lua" ]]; then
     found_logic=1
   fi
-  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == ".github" || $line == .github/* ]]; then
+  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == "AGENTS.md" || $line == ".luacheckrc" || $line == ".github" || $line == .github/* ]]; then
     printf 'commit listed protected path %s\n%s\n' "$line" "$names" >&2
     exit 1
   fi
@@ -189,5 +195,34 @@ if [[ "$miss_out" != *"LooseButtons.toc is missing"* ]]; then
   exit 1
 fi
 cmp "$miss_dest/Logic.lua" "$missing/logic.lua"
+
+agents="$(mktemp -d)"
+agents_origin="$agents/origin"
+agents_dest="$agents/dest"
+mkdir -p "$agents_origin/LooseButtons" "$agents_dest"
+printf 'from-origin\n' > "$agents_origin/LooseButtons/AGENTS.md"
+printf 'NEW\n' > "$agents_origin/LooseButtons/Logic.lua"
+printf '## Version: 0.1.1\n' > "$agents_origin/LooseButtons/LooseButtons.toc"
+printf 'agents-bytes-3c11\n' > "$agents_dest/AGENTS.md"
+printf 'old\n' > "$agents_dest/Logic.lua"
+cp "$agents_dest/AGENTS.md" "$agents/agents.md"
+cp "$agents_dest/Logic.lua" "$agents/logic.lua"
+git init -q -b main "$agents_dest"
+git -C "$agents_dest" config user.email "t@example.com"
+git -C "$agents_dest" config user.name "t"
+set +e
+agents_out="$(bash "$script" --origin "$agents_origin" --dest "$agents_dest" 2>&1)"
+status=$?
+set -e
+if [[ $status -eq 0 ]]; then
+  printf 'agents collision exited 0\n%s\n' "$agents_out" >&2
+  exit 1
+fi
+if [[ "$agents_out" != *"AGENTS.md"* ]]; then
+  printf 'agents collision error did not name the path: %q\n' "$agents_out" >&2
+  exit 1
+fi
+cmp "$agents_dest/AGENTS.md" "$agents/agents.md"
+cmp "$agents_dest/Logic.lua" "$agents/logic.lua"
 
 echo ok
