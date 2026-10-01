@@ -8,6 +8,8 @@ protected=(
   ".github/"
   "AGENTS.md"
   ".luacheckrc"
+  "tools/"
+  ".gitignore"
 )
 
 is_protected() {
