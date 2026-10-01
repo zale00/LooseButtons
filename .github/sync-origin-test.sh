@@ -27,6 +27,9 @@ printf 'pkgmeta-bytes-91c2\n' > "$dest/.pkgmeta"
 printf 'changelog-bytes-44de\n' > "$dest/CHANGELOG.md"
 printf 'agents-bytes-3c11\n' > "$dest/AGENTS.md"
 printf 'luacheckrc-bytes-8e20\n' > "$dest/.luacheckrc"
+mkdir -p "$dest/tools"
+printf 'fetch-script-bytes-a91c\n' > "$dest/tools/fetch-forever-ui-source.sh"
+printf '.cache/\n' > "$dest/.gitignore"
 printf 'old\n' > "$dest/Logic.lua"
 printf 'stale\n' > "$dest/Old.lua"
 printf '## Version: 0.1.1\n' > "$dest/LooseButtons.toc"
@@ -35,10 +38,12 @@ cp "$dest/.pkgmeta" "$saved/.pkgmeta"
 cp "$dest/CHANGELOG.md" "$saved/CHANGELOG.md"
 cp "$dest/AGENTS.md" "$saved/AGENTS.md"
 cp "$dest/.luacheckrc" "$saved/.luacheckrc"
+cp "$dest/tools/fetch-forever-ui-source.sh" "$saved/fetch-forever-ui-source.sh"
+cp "$dest/.gitignore" "$saved/.gitignore"
 git init -q -b main "$dest"
 git -C "$dest" config user.email "t@example.com"
 git -C "$dest" config user.name "t"
-git -C "$dest" add .github/keep.sh .pkgmeta CHANGELOG.md AGENTS.md .luacheckrc Logic.lua Old.lua LooseButtons.toc
+git -C "$dest" add .github/keep.sh .pkgmeta CHANGELOG.md AGENTS.md .luacheckrc .gitignore tools/fetch-forever-ui-source.sh Logic.lua Old.lua LooseButtons.toc
 git -C "$dest" commit -q -m "dest"
 
 set +e
@@ -55,6 +60,8 @@ cmp "$dest/.pkgmeta" "$saved/.pkgmeta"
 cmp "$dest/CHANGELOG.md" "$saved/CHANGELOG.md"
 cmp "$dest/AGENTS.md" "$saved/AGENTS.md"
 cmp "$dest/.luacheckrc" "$saved/.luacheckrc"
+cmp "$dest/tools/fetch-forever-ui-source.sh" "$saved/fetch-forever-ui-source.sh"
+cmp "$dest/.gitignore" "$saved/.gitignore"
 if [[ -e "$dest/Old.lua" ]]; then
   echo "Old.lua still present" >&2
   exit 1
@@ -78,7 +85,7 @@ while IFS= read -r line; do
   if [[ $line == "Logic.lua" ]]; then
     found_logic=1
   fi
-  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == "AGENTS.md" || $line == ".luacheckrc" || $line == ".github" || $line == .github/* ]]; then
+  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == "AGENTS.md" || $line == ".luacheckrc" || $line == ".gitignore" || $line == "tools/fetch-forever-ui-source.sh" || $line == tools/* || $line == ".github" || $line == .github/* ]]; then
     printf 'commit listed protected path %s\n%s\n' "$line" "$names" >&2
     exit 1
   fi
@@ -224,5 +231,35 @@ if [[ "$agents_out" != *"AGENTS.md"* ]]; then
 fi
 cmp "$agents_dest/AGENTS.md" "$agents/agents.md"
 cmp "$agents_dest/Logic.lua" "$agents/logic.lua"
+
+
+tools_case="$(mktemp -d)"
+tools_origin="$tools_case/origin"
+tools_dest="$tools_case/dest"
+mkdir -p "$tools_origin/LooseButtons/tools" "$tools_dest/tools"
+printf 'from-origin\n' > "$tools_origin/LooseButtons/tools/fetch-forever-ui-source.sh"
+printf 'NEW\n' > "$tools_origin/LooseButtons/Logic.lua"
+printf '## Version: 0.1.1\n' > "$tools_origin/LooseButtons/LooseButtons.toc"
+printf 'fetch-script-bytes-a91c\n' > "$tools_dest/tools/fetch-forever-ui-source.sh"
+printf 'old\n' > "$tools_dest/Logic.lua"
+cp "$tools_dest/tools/fetch-forever-ui-source.sh" "$tools_case/fetch.sh"
+cp "$tools_dest/Logic.lua" "$tools_case/logic.lua"
+git init -q -b main "$tools_dest"
+git -C "$tools_dest" config user.email "t@example.com"
+git -C "$tools_dest" config user.name "t"
+set +e
+tools_out="$(bash "$script" --origin "$tools_origin" --dest "$tools_dest" 2>&1)"
+status=$?
+set -e
+if [[ $status -eq 0 ]]; then
+  printf 'tools collision exited 0\n%s\n' "$tools_out" >&2
+  exit 1
+fi
+if [[ "$tools_out" != *"tools/fetch-forever-ui-source.sh"* ]]; then
+  printf 'tools collision error did not name the path: %q\n' "$tools_out" >&2
+  exit 1
+fi
+cmp "$tools_dest/tools/fetch-forever-ui-source.sh" "$tools_case/fetch.sh"
+cmp "$tools_dest/Logic.lua" "$tools_case/logic.lua"
 
 echo ok
