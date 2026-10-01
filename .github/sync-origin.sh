@@ -6,6 +6,8 @@ protected=(
   ".pkgmeta"
   "CHANGELOG.md"
   ".github/"
+  "AGENTS.md"
+  ".luacheckrc"
 )
 
 is_protected() {
