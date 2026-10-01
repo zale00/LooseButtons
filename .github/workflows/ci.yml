@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: luacheck
+        uses: BigWigsMods/luacheck@v1
+        with:
+          args: --no-color -q
+
+      - name: wow-secret-lint
+        uses: Booyaka101/wow-secret-lint@v1.8.1
+        with:
+          path: .
+          patch: auto
+          args: --strict --max-warnings=0
