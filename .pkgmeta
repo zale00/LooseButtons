@@ -1,6 +1,9 @@
 # Forever only. The upload script sends CurseForge game version 1.60.1. Interface 120100 stays in the zip so the Forever client loads the addon.
 package-as: LooseButtons
 
+ignore:
+  - tools
+
 manual-changelog:
   filename: CHANGELOG.md
   markup-type: markdown
