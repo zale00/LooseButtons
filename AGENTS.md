@@ -6,7 +6,7 @@ The Origin tree keeps the addon in `LooseButtons/`. The GitHub repo `zale00/Loos
 
 ## Interface
 
-Keep `## Interface: 16001` and `## X-Flavor: Mainline`.
+Keep `## X-Flavor: Mainline`. The TOC interface is the Forever beta number. It is `16001` for game version `1.60.1`. `.github/forever-monitor.sh` is the only automation that bumps `## Interface:` and `## Version:` when that number changes. Pause it by setting the Actions variable `FOREVER_MONITOR` to `off`, or by committing an empty `.github/FOREVER_MONITOR_PAUSE`.
 
 Forever beta build `1.60.1.70170` (`Gethe/wow-ui-source` `forever`, `9a789c07`, 2026-10-01) is version `1.60.1`. [TOC format](https://warcraft.wiki.gg/wiki/TOC_format) lists Forever Beta as `16001` (`1.60.1`) and Standard as `120100`. The Forever client marks a `120100` TOC incompatible. That retail number is not the load path.
 
