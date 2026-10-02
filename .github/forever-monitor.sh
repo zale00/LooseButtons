@@ -49,7 +49,7 @@ wiki_line() {
   grep -E "^[[:space:]]*\\|${key}\\|" "$file" | head -n 1
 }
 
-wiki_game_interface() {
+game_interface_from_line() {
   local line=$1 rest game iface
   rest=${line#*\\!\\!}
   rest=${rest#*\\!\\!}
@@ -149,3 +149,8 @@ decide() {
 
   printf 'decision noop\n'
 }
+. "$(dirname "$0")/forever-monitor-rest.sh"
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi
