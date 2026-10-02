@@ -1,0 +1,34 @@
+name: Forever agent
+
+on:
+  schedule:
+    - cron: "47 */6 * * *"
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Forever monitor"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forever-agent
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    if: vars.FOREVER_MONITOR != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Start a Forever compat agent when the signal moves
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/forever-agent.sh
