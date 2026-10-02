@@ -17,6 +17,9 @@ jobs:
       - name: Forever monitor
         run: bash .github/forever-monitor-test.sh
 
+      - name: Forever agent
+        run: bash .github/forever-agent-test.sh
+
       - name: luacheck
         uses: BigWigsMods/luacheck@v1
         with:
