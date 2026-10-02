@@ -49,7 +49,7 @@ wiki_line() {
   grep -E "^[[:space:]]*\\|${key}\\|" "$file" | head -n 1
 }
 
-game_interface_from_line() {
+wiki_game_interface() {
   local line=$1 rest game iface
   rest=${line#*\\!\\!}
   rest=${rest#*\\!\\!}
