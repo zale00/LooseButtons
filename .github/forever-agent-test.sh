@@ -75,6 +75,22 @@ out=$(run_agent "$src" "$wiki" "$cf" "$other")
 assert_eq "$(decision_line "$out")" "decision blocked" "kick without key"
 cmp -s <(base_state) "$src/.github/forever-agent-state" || fail "blocked rewrote state"
 
+set +e
+out=$(env -u CF_API_KEY -u CURSOR_API_KEY -u FOREVER_AGENT_SINK \
+  GITHUB_ACTIONS=true \
+  FOREVER_REPO="$src" \
+  FOREVER_WIKI_FILE="$wiki" \
+  FOREVER_CF_FILE="$cf" \
+  FOREVER_GETHE_TEXT='1.60.1.70170' \
+  FOREVER_GETHE_SHA="$other" \
+  bash "$script" 2>&1)
+status=$?
+set -e
+assert_eq "$status" "0" "actions blocked exits 0"
+assert_eq "$(decision_line "$out")" "decision blocked" "actions blocked line"
+grep -F '::warning title=Forever agent::decision blocked' <<<"$out" >/dev/null || fail "actions blocked annotation"
+cmp -s <(base_state) "$src/.github/forever-agent-state" || fail "actions blocked rewrote state"
+
 sink="$root/body.json"
 out=$(env -u GITHUB_ACTIONS -u CF_API_KEY \
   FOREVER_REPO="$src" \

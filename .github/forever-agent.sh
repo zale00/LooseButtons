@@ -255,6 +255,9 @@ agent_main() {
   [[ $decision == decision\ kick\ * ]] || die "decision"
   if [[ -z ${CURSOR_API_KEY:-} && -z ${FOREVER_AGENT_SINK:-} ]]; then
     printf 'decision blocked\n'
+    if [[ -n ${GITHUB_ACTIONS:-} ]]; then
+      printf '::warning title=Forever agent::decision blocked\n'
+    fi
     exit 0
   fi
   if [[ -n ${GITHUB_ACTIONS:-} ]]; then

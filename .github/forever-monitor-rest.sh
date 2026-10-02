@@ -155,11 +155,11 @@ main() {
   fi
 
   if [[ -z $cf ]]; then
-    if [[ -n ${GITHUB_ACTIONS:-} ]]; then
-      die "no-cf"
-    fi
     if [[ $toc_iface == "$wiki_iface" && $gethe_game == "$wiki_game" && $wiki_iface != "$retail_iface" && $wiki_iface == "$(interface_of "$wiki_game")" && ${wiki_game%%.*} -lt $forever_major_limit ]]; then
       printf 'notice cf unchecked\n'
+      if [[ -n ${GITHUB_ACTIONS:-} ]]; then
+        printf '::warning title=Forever monitor::cf unchecked, decision noop\n'
+      fi
       printf 'decision noop\n'
       exit 0
     fi

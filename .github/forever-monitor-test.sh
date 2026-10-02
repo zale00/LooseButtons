@@ -222,6 +222,43 @@ out=$(run_monitor "$src8" "$wiki8" "$cf8" '1.61.0.71000' --apply)
 assert_eq "$(decision_line "$out")" "decision bump 16100 0.1.4 1.61.0 upload" "live camelot row"
 assert_eq "$(toc_interface "$src8")" "16100" "live row interface"
 
+root9=$(mktemp -d)
+src9=$(new_repo "$root9")
+wiki9="$root9/wiki.txt"
+base_wiki >"$wiki9"
+set +e
+out=$(env -u CF_API_KEY -u FOREVER_CF_FILE \
+  GITHUB_ACTIONS=true \
+  FOREVER_REPO="$src9" \
+  FOREVER_WIKI_FILE="$wiki9" \
+  FOREVER_GETHE_TEXT='1.60.1.70170' \
+  bash "$script" 2>&1)
+status=$?
+set -e
+assert_eq "$status" "0" "actions noop without cf exits 0"
+assert_eq "$(decision_line "$out")" "decision noop" "actions noop without cf"
+grep -F 'notice cf unchecked' <<<"$out" >/dev/null || fail "actions noop notice"
+grep -F '::warning title=Forever monitor::cf unchecked, decision noop' <<<"$out" >/dev/null || fail "actions noop annotation"
+assert_eq "$(toc_version "$src9")" "0.1.3" "actions noop leaves version"
+
+root10=$(mktemp -d)
+src10=$(new_repo "$root10")
+wiki10="$root10/wiki.txt"
+base_wiki >"$wiki10"
+sed -i 's/1\.60\.1\\!\\!16001/1.61.0\\!\\!16100/' "$wiki10"
+set +e
+out=$(env -u CF_API_KEY -u FOREVER_CF_FILE \
+  GITHUB_ACTIONS=true \
+  FOREVER_REPO="$src10" \
+  FOREVER_WIKI_FILE="$wiki10" \
+  FOREVER_GETHE_TEXT='1.61.0.71000' \
+  bash "$script" 2>&1)
+status=$?
+set -e
+assert_eq "$status" "1" "actions bump without cf exits 1"
+assert_eq "$(decision_line "$out")" "decision refuse no-cf" "actions bump without cf"
+assert_eq "$(toc_version "$src10")" "0.1.3" "actions bump without cf writes nothing"
+
 # Pause file.
 touch "$src/.github/FOREVER_MONITOR_PAUSE"
 out=$(run_monitor "$src" "$wiki" "$cf" '1.61.0.71000' --apply)
