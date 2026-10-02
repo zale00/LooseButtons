@@ -1,4 +1,4 @@
-# Forever only. The upload script sends CurseForge game version 1.60.1. Interface 120100 stays in the zip so the Forever client loads the addon.
+# Forever only. The upload script sends the Forever game-version row (type 88568). The TOC interface is 16001 so the Forever client loads the addon.
 package-as: LooseButtons
 
 ignore:

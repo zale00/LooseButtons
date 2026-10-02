@@ -1,12 +1,12 @@
-## Interface: 120100
+## Interface: 16001
 ## Title: Loose Buttons
 ## Notes: All the buttons. Not a bar.
 ## Author: Loose Buttons
-## Version: 0.1.2
+## Version: 0.1.3
 ## SavedVariables: LooseButtonsDB
 ## X-Flavor: Mainline
 
-# 120100 stays so the Forever client loads this addon. The CurseForge upload sends game version 1.60.1. The packager would label 120100 as Mainline 12.1.0, and -g 1.60.1 rewrites this line to 16001.
+# 16001 is Forever beta 1.60.1. The client marks 120100 incompatible. The upload sends the Forever game-version row and does not let the packager upload.
 
 Logic.lua
 LooseButtons.lua

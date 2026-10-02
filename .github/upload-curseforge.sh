@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Interface 120100 makes the packager send retail 12.1.0, so this script never uses the packager's game version.
+# Interface 16001 makes packager v2.6.1 label the build Forever 1.60.1. This script never lets it upload.
 forever_name=1.60.1
 forever_type=88568
 retail_name=12.1.0
@@ -123,6 +123,9 @@ forever_id="$(jq -r --arg name "$forever_name" --argjson type "$forever_type" '
   [ .[] | select(.name == $name and .gameVersionTypeID == $type) | .id ] | first // empty
 ' "$versions_body")"
 if [[ ! "$forever_id" =~ ^[0-9]+$ ]]; then
+  jq -r --argjson type "$forever_type" '
+    .[] | select(.gameVersionTypeID == $type) | "forever row \(.id) \(.name)"
+  ' "$versions_body" || true
   die "CurseForge has no Forever game version ${forever_name} type ${forever_type}"
 fi
 read_name="$(jq -r --argjson id "$forever_id" '[.[] | select(.id == $id)] | first | .name // empty' "$versions_body")"
@@ -213,4 +216,4 @@ file_id="$(jq -r '.id // empty' "$result" 2>/dev/null || true)"
 
 git tag "cf-${version}" "$workflow_sha"
 git push origin "refs/tags/cf-${version}"
-say "uploaded ${version} as Forever 1.60.1 file ${file_id:-unknown}"
+say "uploaded ${version} as Forever ${forever_name} file ${file_id:-unknown}"

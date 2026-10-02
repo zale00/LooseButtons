@@ -6,11 +6,13 @@ The Origin tree keeps the addon in `LooseButtons/`. The GitHub repo `zale00/Loos
 
 ## Interface
 
-Keep `## Interface: 120100` and `## X-Flavor: Mainline`.
+Keep `## Interface: 16001` and `## X-Flavor: Mainline`.
 
-The Forever client loads this addon with `120100`. CurseForge metadata is game version `1.60.1`, type Forever. The upload script sends that row. Packager `-g 1.60.1` rewrites a zip's `Interface` line to `16001`. That zip does not match the load path.
+Forever beta build `1.60.1.70170` (`Gethe/wow-ui-source` `forever`, `9a789c07`, 2026-10-01) is version `1.60.1`. [TOC format](https://warcraft.wiki.gg/wiki/TOC_format) lists Forever Beta as `16001` (`1.60.1`) and Standard as `120100`. The Forever client marks a `120100` TOC incompatible. That retail number is not the load path.
 
-Do not set `## Interface: 16001`, `Interface-Forever`, or a `_Camelot.toc`. Camelot is Blizzard's game type for Forever. A tool that lists Forever's interface as `16001` is not a load proof for this addon. Do not bump `## Version:` for lint or CI. On GitHub, the changelog heading and the TOC version stay the same string.
+Do not add `Interface-Forever` or a `_Camelot.toc`. This addon is Forever only, so the one TOC is what the client reads. Camelot is the game type. The same dump sets `WOW_PROJECT_CAMELOT = 18` and `WOW_PROJECT_ID` to that value.
+
+CurseForge metadata is the Forever row (`gameVersionTypeID` `88568`) whose name is the live game version. The upload script looks that row up, refuses retail type `517`, and does not fall back to another Forever version. Packager v2.6.1 maps interface `16???` to Forever and prints game version `1.60.1`. The upload passes `-d` and unsets `CF_API_KEY`, so the packager does not upload. Its own uploader falls back to a different Forever version when the exact name is missing. Do not bump `## Version:` for lint or CI. On GitHub, the changelog heading and the TOC version stay the same string.
 
 `Bindings.xml` is loaded by the client. Leave it out of the TOC file list.
 
@@ -24,11 +26,11 @@ Secret values, combat lockdown, and protected actions are different rules.
 
 ## APIs
 
-Do not invent APIs. Read warcraft.wiki.gg or `Gethe/wow-ui-source` branch `forever` before adding a call. That branch is a reference. It does not change the TOC interface.
+Do not invent APIs. Read warcraft.wiki.gg or `Gethe/wow-ui-source` branch `forever` before adding a call. `version.txt` on that branch is the client build. The TOC interface is the Forever Beta number for that version, which is `16001` for `1.60.1`.
 
-Fetch a sparse checkout (about 14MB at 1.60.1.70124) with `tools/fetch-forever-ui-source.sh`. It writes `.cache/wow-ui-source`, which is gitignored. Grep that tree. Camelot files are the Forever overrides: `Blizzard_PlayerSpells/Camelot/` and `Blizzard_EditMode` load lines marked `camelot`. `SecureActionButtonTemplate` is in `Blizzard_FrameXML/SecureTemplates.xml`. `UnitHealth` is `SecretReturns = true` in `UnitDocumentation.lua`. `CreateFrame` is an engine global; the dump shows call sites, not its definition.
+Fetch a sparse checkout with `tools/fetch-forever-ui-source.sh`. It writes `.cache/wow-ui-source`, which is gitignored. Grep that tree. Camelot files are the Forever overrides: `Blizzard_PlayerSpells/Camelot/` and `Blizzard_EditMode` load lines marked `camelot`. `SecureActionButtonTemplate` is in `Blizzard_FrameXML/SecureTemplates.xml`. `UnitHealth` is `SecretReturns = true` in `UnitDocumentation.lua`. `CreateFrame` is an engine global; the dump shows call sites, not its definition.
 
-`@nighthawk42/wow-api-mcp` flavor `forever` can answer a signature. Its bundled data can lag the branch (seen: build 1.60.1.70009, interface `16001`). That `16001` is the tool's flavor constant. It is not a TOC edit. The first source search in that server downloads about 200MB; the script above is the smaller grep path.
+`@nighthawk42/wow-api-mcp` flavor `forever` can answer a signature. Its bundled data can lag the branch (seen: build 1.60.1.70009 while the branch was already `1.60.1.70170`). The first source search in that server downloads about 200MB; the script above is the smaller grep path.
 
 Secret behavior notes: [Secret values](https://warcraft.wiki.gg/wiki/Secret_values). `issecretvalue` before arithmetic. A wiki MCP lookup of that name can be only a redirect.
 

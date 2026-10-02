@@ -1,5 +1,9 @@
 # LooseButtons
 
+## 0.1.3
+
+- The TOC interface is 16001, Forever beta 1.60.1. The client lists 120100 as incompatible.
+
 ## 0.1.2
 
 - Login shows the layout that character last left on. A character with no saved row still starts Blank.
