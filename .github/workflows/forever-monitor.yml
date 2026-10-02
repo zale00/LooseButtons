@@ -1,0 +1,31 @@
+name: Forever monitor
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: forever-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    if: vars.FOREVER_MONITOR != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Check Forever and ship a compatibility patch
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/forever-monitor.sh
