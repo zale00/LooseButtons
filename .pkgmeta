@@ -3,6 +3,7 @@ package-as: LooseButtons
 
 ignore:
   - tools
+  - devcheck
 
 manual-changelog:
   filename: CHANGELOG.md
