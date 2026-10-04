@@ -31,3 +31,9 @@ jobs:
           path: .
           patch: auto
           args: --strict --max-warnings=0
+
+      - name: Chunk budget
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+          lua5.1 devcheck/check_chunk_budget.lua
