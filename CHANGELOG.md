@@ -1,5 +1,10 @@
 # LooseButtons
 
+## 0.1.4
+
+- AddOn list shows the book icon instead of the mystery-mark placeholder
+- Under-the-hood cleanup so Forever keeps loading clean. Same buttons, less jank risk
+
 ## 0.1.3
 
 - The TOC interface is 16001, Forever beta 1.60.1. The client lists 120100 as incompatible.
