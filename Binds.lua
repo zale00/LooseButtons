@@ -21,7 +21,162 @@ local function IconFor(record)
 		local _, icon = GetMacroInfo(record.payload)
 		return icon
 	end
+	if record.kind == "pet" and record.petCast == "spell" and C_Spell and C_Spell.GetSpellTexture then
+		return C_Spell.GetSpellTexture(record.payload)
+	end
 	return nil
+end
+
+local RefreshHotkey
+
+local function RangeSpellID(record)
+	if type(record) ~= "table" then
+		return nil
+	end
+	if record.kind == "spell" or (record.kind == "pet" and record.petCast == "spell") then
+		if type(record.payload) == "number" then
+			return record.payload
+		end
+	end
+	return nil
+end
+
+local function ApplyOutOfRange(button, record, outOfRange)
+	if not button then
+		return
+	end
+	button.lbOutOfRange = outOfRange and true or false
+	RefreshHotkey(button, record)
+end
+
+function LB.PetActionBarSlot(petActionID)
+	if type(petActionID) ~= "number" then
+		return nil
+	end
+	if not C_ActionBar or type(C_ActionBar.GetPetActionPetBarIndices) ~= "function" then
+		return nil
+	end
+	return Logic.PetBarSlot(C_ActionBar.GetPetActionPetBarIndices(petActionID))
+end
+
+local function PaintPetActionRange(record)
+	if type(record) ~= "table" or record.kind ~= "pet" or record.petCast ~= "action" then
+		return false
+	end
+	local button = LB.ButtonFor(record)
+	local barSlot = LB.PetActionBarSlot(record.payload)
+	if not barSlot or type(GetPetActionInfo) ~= "function" then
+		ApplyOutOfRange(button, record, false)
+		return true
+	end
+	local _, _, _, _, _, _, _, checksRange, inRange = GetPetActionInfo(barSlot)
+	ApplyOutOfRange(button, record, Logic.HotkeyOutOfRange(checksRange, inRange))
+	return true
+end
+
+local function RefreshPetActionRanges()
+	if not LB.poolReady or type(LB.DB) ~= "function" then
+		return
+	end
+	local buttons = LB.DB().buttons
+	if type(buttons) ~= "table" then
+		return
+	end
+	local i
+	for i = 1, #buttons do
+		PaintPetActionRange(buttons[i])
+	end
+end
+
+local function RefreshSpellRange(record, checksRange, inRange)
+	local button = LB.ButtonFor(record)
+	ApplyOutOfRange(button, record, Logic.HotkeyOutOfRange(checksRange, inRange))
+end
+
+local function QuerySpellRange(spellID)
+	if not C_Spell or type(C_Spell.IsSpellInRange) ~= "function" then
+		return false, true
+	end
+	local inRange = C_Spell.IsSpellInRange(spellID)
+	if type(issecretvalue) == "function" and issecretvalue(inRange) then
+		return false, true
+	end
+	if inRange == nil then
+		return false, true
+	end
+	if inRange == false then
+		return true, false
+	end
+	return true, true
+end
+
+local function SyncSpellRanges()
+	if not LB.poolReady or type(LB.DB) ~= "function" then
+		return
+	end
+	local buttons = LB.DB().buttons
+	if type(buttons) ~= "table" then
+		return
+	end
+	local nextIds = {}
+	local i
+	for i = 1, #buttons do
+		local spellID = RangeSpellID(buttons[i])
+		if spellID then
+			nextIds[spellID] = true
+		end
+	end
+	local previous = LB.rangeSpellIds or {}
+	if C_Spell and type(C_Spell.EnableSpellRangeCheck) == "function" then
+		local id
+		for id in pairs(previous) do
+			if not nextIds[id] then
+				C_Spell.EnableSpellRangeCheck(id, false)
+			end
+		end
+		for id in pairs(nextIds) do
+			if not previous[id] then
+				C_Spell.EnableSpellRangeCheck(id, true)
+			end
+		end
+	end
+	LB.rangeSpellIds = nextIds
+	for i = 1, #buttons do
+		local record = buttons[i]
+		local spellID = RangeSpellID(record)
+		if spellID then
+			local checksRange, inRange = QuerySpellRange(spellID)
+			RefreshSpellRange(record, checksRange, inRange)
+		elseif not PaintPetActionRange(record) then
+			local button = LB.ButtonFor(record)
+			if button and button.lbOutOfRange then
+				ApplyOutOfRange(button, record, false)
+			end
+		end
+	end
+end
+
+local function OnSpellRange(spellID, isInRange, checksRange)
+	if type(issecretvalue) == "function" and issecretvalue(spellID) then
+		return
+	end
+	if type(spellID) ~= "number" or not LB.poolReady or type(LB.DB) ~= "function" then
+		return
+	end
+	local buttons = LB.DB().buttons
+	if type(buttons) ~= "table" then
+		return
+	end
+	local oor = Logic.HotkeyOutOfRange(checksRange, isInRange)
+	local i
+	for i = 1, #buttons do
+		local record = buttons[i]
+		if RangeSpellID(record) == spellID then
+			ApplyOutOfRange(LB.ButtonFor(record), record, oor)
+		else
+			PaintPetActionRange(record)
+		end
+	end
 end
 
 local function BindingKeyText(button)
@@ -38,7 +193,7 @@ local function BindingKeyText(button)
 	return key
 end
 
-local function RefreshHotkey(button, record)
+function RefreshHotkey(button, record)
 	if not button or not button.hotkeyText then
 		return
 	end
@@ -47,6 +202,9 @@ local function RefreshHotkey(button, record)
 		button.hotkeyText:SetText(text)
 	else
 		button.hotkeyText:SetText("")
+	end
+	if LB.PaintHotkeyRange then
+		LB.PaintHotkeyRange(button.hotkeyText, button.lbOutOfRange)
 	end
 	if button.hotkey then
 		button.hotkey:EnableMouse(text ~= nil)
@@ -153,8 +311,14 @@ local function ShowTip(owner, record)
 	end
 	GameTooltip:SetOwner(owner, "ANCHOR_CURSOR_RIGHT")
 	local payload = record.payload
-	if record.kind == "spell" and type(payload) == "number" and type(GameTooltip.SetSpellByID) == "function" then
+	if (record.kind == "spell" or (record.kind == "pet" and record.petCast == "spell")) and type(payload) == "number" and type(GameTooltip.SetSpellByID) == "function" then
 		if GameTooltip:SetSpellByID(payload) ~= false then
+			return
+		end
+	end
+	if record.kind == "pet" and record.petCast == "action" and type(payload) == "number" and type(GameTooltip.SetPetAction) == "function" then
+		local barSlot = LB.PetActionBarSlot(payload)
+		if barSlot and GameTooltip:SetPetAction(barSlot) ~= false then
 			return
 		end
 	end
@@ -564,6 +728,9 @@ LB.IconFor = IconFor
 LB.KeybindOpen = KeybindOpen
 LB.ReceiveCatalogDrop = ReceiveCatalogDrop
 LB.RefreshHotkey = RefreshHotkey
+LB.RefreshPetActionRanges = RefreshPetActionRanges
+LB.SyncSpellRanges = SyncSpellRanges
+LB.OnSpellRange = OnSpellRange
 LB.SetActionClicks = SetActionClicks
 LB.ShowTip = ShowTip
 LB.ToggleBind = ToggleBind

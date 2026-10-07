@@ -174,6 +174,15 @@ function LB.Describe(record)
 	if record.kind == "macro" and type(GetMacroInfo) == "function" then
 		return GetMacroInfo(record.payload) or "Macro"
 	end
+	if record.kind == "pet" then
+		if record.petCast == "spell" and C_Spell and C_Spell.GetSpellName then
+			return C_Spell.GetSpellName(record.payload) or record.name or "Pet"
+		end
+		if type(record.name) == "string" and record.name ~= "" then
+			return record.name
+		end
+		return "Pet"
+	end
 	local launcher = Logic.LauncherByCommand(record.payload)
 	if launcher then
 		return launcher.name
@@ -208,7 +217,29 @@ events:RegisterEvent("UPDATE_BINDINGS")
 events:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
 events:RegisterEvent("SPELLS_CHANGED")
 events:RegisterEvent("UPDATE_MACROS")
-events:SetScript("OnEvent", function(_, event, arg1)
+events:RegisterEvent("SPELL_RANGE_CHECK_UPDATE")
+events:RegisterEvent("PLAYER_TARGET_CHANGED")
+events:RegisterEvent("PET_BAR_UPDATE")
+local rangeElapsed = 0
+events:SetScript("OnUpdate", function(_, elapsed)
+	if type(LB.RefreshPetActionRanges) ~= "function" then
+		return
+	end
+	if type(elapsed) ~= "number" or (type(issecretvalue) == "function" and issecretvalue(elapsed)) then
+		return
+	end
+	local period = 0.2
+	if type(TOOLTIP_UPDATE_TIME) == "number" and not (type(issecretvalue) == "function" and issecretvalue(TOOLTIP_UPDATE_TIME)) then
+		period = TOOLTIP_UPDATE_TIME
+	end
+	rangeElapsed = rangeElapsed + elapsed
+	if rangeElapsed < period then
+		return
+	end
+	rangeElapsed = 0
+	LB.RefreshPetActionRanges()
+end)
+events:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 	if event == "ADDON_LOADED" then
 		if arg1 == "LooseButtons" then
 			LB.LoadDB()
@@ -252,7 +283,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		if LB.pending and not InCombatLockdown() then
 			local pending = LB.pending
 			LB.pending = nil
-			LB.Place(pending.kind, pending.payload, pending.x, pending.y, pending.icon)
+			LB.Place(pending.kind, pending.payload, pending.x, pending.y, pending.icon, pending.petCast)
 		end
 		if LB.pendingDragType and not InCombatLockdown() then
 			local pendingType = LB.pendingDragType
@@ -315,6 +346,29 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		end
 		if LB.page and LB.page:IsShown() then
 			LB.LayoutCatalog(nil, true)
+		end
+		return
+	end
+	if event == "SPELL_RANGE_CHECK_UPDATE" then
+		if LB.OnSpellRange then
+			LB.OnSpellRange(arg1, arg2, arg3)
+		end
+		return
+	end
+	if event == "PLAYER_TARGET_CHANGED" then
+		if LB.SyncSpellRanges then
+			LB.SyncSpellRanges()
+		end
+		return
+	end
+	if event == "PET_BAR_UPDATE" then
+		if LB.page and LB.page:IsShown() then
+			LB.LayoutCatalog(nil, true)
+		end
+		if not InCombatLockdown() and LB.poolReady and LB.ApplyAll then
+			LB.ApplyAll()
+		elseif LB.RefreshPetActionRanges then
+			LB.RefreshPetActionRanges()
 		end
 		return
 	end

@@ -1,5 +1,10 @@
 # LooseButtons
 
+## 0.1.5
+
+- Ranged spell hotkeys turn red when the target is out of range
+- Pet abilities appear in the catalog and drag onto the HUD like other rows
+
 ## 0.1.4
 
 - AddOn list shows the book icon instead of the mystery-mark placeholder

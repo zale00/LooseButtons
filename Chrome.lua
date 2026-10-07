@@ -259,6 +259,28 @@ local function ItemCount(payload)
 	return nil
 end
 
+function LB.PaintHotkeyRange(text, outOfRange)
+	if not text or type(text.GetText) ~= "function" or type(text.SetVertexColor) ~= "function" then
+		return
+	end
+	local shown = text:GetText()
+	if type(shown) ~= "string" or shown == "" then
+		return
+	end
+	local color = ACTIONBAR_HOTKEY_FONT_COLOR
+	if outOfRange then
+		color = RED_FONT_COLOR
+	end
+	if type(color) ~= "table" or type(color.GetRGB) ~= "function" then
+		return
+	end
+	local r, g, b = color:GetRGB()
+	if type(issecretvalue) == "function" and (issecretvalue(r) or issecretvalue(g) or issecretvalue(b)) then
+		return
+	end
+	text:SetVertexColor(r, g, b)
+end
+
 local function RestoreIcon(icon)
 	if icon and icon.SetDesaturated then
 		icon:SetDesaturated(false)
@@ -305,7 +327,7 @@ local function ApplyRecordCooldown(button, record)
 	if not cooldown or not record then
 		return
 	end
-	if record.kind == "spell" and C_Spell and C_Spell.GetSpellCooldownDuration and cooldown.SetCooldownFromDurationObject then
+	if (record.kind == "spell" or (record.kind == "pet" and record.petCast == "spell")) and C_Spell and C_Spell.GetSpellCooldownDuration and cooldown.SetCooldownFromDurationObject then
 		local duration = C_Spell.GetSpellCooldownDuration(record.payload)
 		local secret = type(issecretvalue) == "function" and issecretvalue(duration)
 		if secret or duration then

@@ -138,6 +138,27 @@ function Logic.Pool(kind)
 	return "action"
 end
 
+function Logic.PetBarSlot(slots)
+	if type(slots) ~= "table" then
+		return nil
+	end
+	local slot = slots[1]
+	if type(issecretvalue) == "function" and issecretvalue(slot) then
+		return nil
+	end
+	if type(slot) ~= "number" or slot < 1 or slot ~= math.floor(slot) then
+		return nil
+	end
+	return slot
+end
+
+function Logic.HotkeyOutOfRange(checksRange, inRange)
+	if type(issecretvalue) == "function" and (issecretvalue(checksRange) or issecretvalue(inRange)) then
+		return false
+	end
+	return checksRange == true and inRange == false
+end
+
 function Logic.SlotLimit(kind)
 	if Logic.Pool(kind) == "launcher" then
 		return Logic.LAUNCHER_SLOTS
@@ -300,7 +321,7 @@ function Logic.Normalize(list)
 		local raw = list[i]
 		if type(raw) == "table" then
 			local kind = raw.kind
-			local known = kind == "spell" or kind == "item" or kind == "macro" or kind == "launcher"
+			local known = kind == "spell" or kind == "item" or kind == "macro" or kind == "launcher" or kind == "pet"
 			local slot = raw.slot
 			if known and wholeNumber(slot, 1) and slot <= Logic.SlotLimit(kind) then
 				local payload = raw.payload
@@ -311,6 +332,14 @@ function Logic.Normalize(list)
 					payloadOk = wholeNumber(payload, 1) or (type(payload) == "string" and payload ~= "")
 				else
 					payloadOk = wholeNumber(payload, 1)
+				end
+				local petCast
+				if kind == "pet" then
+					if raw.petCast == "spell" or raw.petCast == "action" then
+						petCast = raw.petCast
+					else
+						payloadOk = false
+					end
 				end
 				if payloadOk then
 					local point = raw.point
@@ -352,6 +381,7 @@ function Logic.Normalize(list)
 						id = Logic.RecordId(kind, slot),
 						kind = kind,
 						payload = payload,
+						petCast = petCast,
 						class = class,
 						icon = Logic.UsableTexture(icon),
 						chrome = chrome,
@@ -1488,7 +1518,104 @@ function Logic.Macros(api)
 	}
 end
 
-function Logic.BuildSections(skillLines, spellAt, launchers, items, macros)
+function Logic.PetBookEntries(spellBook, enum, petHasSpellbook)
+	if type(spellBook) ~= "table" or type(spellBook.HasPetSpells) ~= "function" or type(spellBook.GetSpellBookItemInfo) ~= "function" then
+		return nil
+	end
+	if type(enum) ~= "table" or type(enum.SpellBookSpellBank) ~= "table" or type(enum.SpellBookItemType) ~= "table" then
+		return nil
+	end
+	if type(petHasSpellbook) == "function" and not petHasSpellbook() then
+		return nil
+	end
+	local count = spellBook.HasPetSpells()
+	if type(issecretvalue) == "function" and issecretvalue(count) then
+		return nil
+	end
+	if type(count) ~= "number" or count < 1 then
+		return nil
+	end
+	local rows = {}
+	local index
+	for index = 1, count do
+		local info = spellBook.GetSpellBookItemInfo(index, enum.SpellBookSpellBank.Pet)
+		if type(info) == "table" then
+			local itemType
+			if info.itemType == enum.SpellBookItemType.Spell then
+				itemType = "spell"
+			elseif info.itemType == enum.SpellBookItemType.PetAction then
+				itemType = "action"
+			end
+			if itemType then
+				table.insert(rows, {
+					itemType = itemType,
+					spellID = info.spellID,
+					actionID = info.actionID,
+					name = info.name,
+					iconID = info.iconID,
+					isPassive = info.isPassive and true or false,
+					bookSlot = index,
+				})
+			end
+		end
+	end
+	return Logic.PetEntries(rows)
+end
+
+function Logic.PetEntries(rows)
+	if type(rows) ~= "table" then
+		return nil
+	end
+	local entries = {}
+	local i
+	for i = 1, #rows do
+		local row = rows[i]
+		if type(row) == "table" then
+			local name = row.name
+			local secretName = type(issecretvalue) == "function" and issecretvalue(name)
+			local cast
+			local payload
+			if row.itemType == "spell" and not row.isPassive then
+				payload = row.spellID
+				if type(payload) ~= "number" then
+					payload = row.actionID
+				end
+				cast = "spell"
+			elseif row.itemType == "action" then
+				payload = row.actionID
+				cast = "action"
+			end
+			local secretPayload = type(issecretvalue) == "function" and issecretvalue(payload)
+			if not secretName and not secretPayload and cast and type(name) == "string" and name ~= "" and wholeNumber(payload, 1) then
+				local entry = {
+					kind = "pet",
+					payload = payload,
+					petCast = cast,
+					name = name,
+					icon = Logic.UsableTexture(row.iconID),
+					chrome = "action",
+				}
+				if wholeNumber(row.bookSlot, 1) then
+					entry.bookSlot = row.bookSlot
+				end
+				table.insert(entries, entry)
+			end
+		end
+	end
+	if #entries == 0 then
+		return nil
+	end
+	return entries
+end
+
+local function petSectionTitle()
+	if type(PET) == "string" and PET ~= "" then
+		return PET
+	end
+	return "Pet"
+end
+
+function Logic.BuildSections(skillLines, spellAt, launchers, items, macros, pets)
 	local sections = {}
 	if type(skillLines) == "table" and type(spellAt) == "function" then
 		local seenID = {}
@@ -1567,6 +1694,9 @@ function Logic.BuildSections(skillLines, spellAt, launchers, items, macros)
 	end
 	if #itemEntries > 0 then
 		table.insert(sections, { title = "Items", entries = itemEntries })
+	end
+	if type(pets) == "table" and #pets > 0 then
+		table.insert(sections, { title = petSectionTitle(), entries = pets })
 	end
 	if type(macros) == "table" then
 		for i = 1, #Logic.MACRO_SECTIONS do

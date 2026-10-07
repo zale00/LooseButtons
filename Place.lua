@@ -27,6 +27,8 @@ local function HideSlot(button, kind)
 		button:SetAttribute("spell", "")
 		button:SetAttribute("item", "")
 		button:SetAttribute("macro", "")
+		button:SetAttribute("action", nil)
+		button.lbOutOfRange = nil
 	end
 	button:Hide()
 end
@@ -138,22 +140,31 @@ local function Configure(button, record)
 		LB.WireLauncher(button, record)
 	else
 		button:SetSize(Logic.ButtonExtent(record, LB.ScaleOf(record)))
-		if record.kind == "spell" then
+		if record.kind == "spell" or (record.kind == "pet" and record.petCast == "spell") then
 			button:SetAttribute("type", "spell")
 			button:SetAttribute("spell", tostring(record.payload))
 			button:SetAttribute("item", "")
 			button:SetAttribute("macro", "")
+			button:SetAttribute("action", nil)
 		elseif record.kind == "item" then
 			local item = Logic.ItemUseAttribute(record.payload)
 			button:SetAttribute("type", "item")
 			button:SetAttribute("item", item or "")
 			button:SetAttribute("spell", "")
 			button:SetAttribute("macro", "")
+			button:SetAttribute("action", nil)
+		elseif record.kind == "pet" then
+			button:SetAttribute("type", "pet")
+			button:SetAttribute("action", LB.PetActionBarSlot(record.payload))
+			button:SetAttribute("spell", "")
+			button:SetAttribute("item", "")
+			button:SetAttribute("macro", "")
 		else
 			button:SetAttribute("type", "macro")
 			button:SetAttribute("macro", tostring(record.payload))
 			button:SetAttribute("spell", "")
 			button:SetAttribute("item", "")
+			button:SetAttribute("action", nil)
 		end
 		button:SetAttribute("*type2", "")
 		local holds = Logic.CastHoldPrefixes()
@@ -210,6 +221,9 @@ local function ApplyAll()
 		end
 	end
 	LB.hiddenIds = LB.HiddenIds()
+	if LB.SyncSpellRanges then
+		LB.SyncSpellRanges()
+	end
 end
 LB.ApplyAll = ApplyAll
 
@@ -267,6 +281,9 @@ local function RemoveRecord(kind, poolSlot)
 	table.remove(LB.DB().buttons, index)
 	local button = Logic.Pool(kind) == "launcher" and LB.launchers[poolSlot] or LB.actions[poolSlot]
 	HideSlot(button, kind)
+	if LB.SyncSpellRanges then
+		LB.SyncSpellRanges()
+	end
 end
 
 local ACTION_BUTTON_PREFIXES = {
@@ -317,7 +334,7 @@ local function ActionButtonUnderCursor()
 	return nil
 end
 
-local function PlaceIntoAction(button, kind, payload)
+local function PlaceIntoAction(button, kind, payload, petCast, bookSlot)
 	if InCombatLockdown() or type(PlaceAction) ~= "function" or not button then
 		return false
 	end
@@ -325,12 +342,20 @@ local function PlaceIntoAction(button, kind, payload)
 	if type(slot) ~= "number" then
 		return false
 	end
-	if kind == "spell" and C_Spell and C_Spell.PickupSpell then
+	if (kind == "spell" or (kind == "pet" and petCast == "spell")) and C_Spell and C_Spell.PickupSpell then
 		C_Spell.PickupSpell(payload)
 	elseif kind == "item" and C_Item and C_Item.PickupItem then
 		C_Item.PickupItem(payload)
 	elseif kind == "macro" and type(PickupMacro) == "function" then
 		PickupMacro(payload)
+	elseif kind == "pet" and petCast == "action" and type(bookSlot) == "number" and C_SpellBook and C_SpellBook.PickupSpellBookItem and Enum and Enum.SpellBookSpellBank then
+		C_SpellBook.PickupSpellBookItem(bookSlot, Enum.SpellBookSpellBank.Pet)
+	elseif kind == "pet" and petCast == "action" and type(PickupPetAction) == "function" then
+		local barSlot = LB.PetActionBarSlot(payload)
+		if not barSlot then
+			return false
+		end
+		PickupPetAction(barSlot)
 	else
 		return false
 	end
@@ -700,7 +725,7 @@ FinishDrag = function(button)
 	end
 	if moving.mode == "one" then
 		local over = ActionButtonUnderCursor()
-		if Logic.DropIntent("loose", over ~= nil, record.kind) == "action" and PlaceIntoAction(over, record.kind, record.payload) then
+		if Logic.DropIntent("loose", over ~= nil, record.kind) == "action" and PlaceIntoAction(over, record.kind, record.payload, record.petCast, record.bookSlot) then
 			RemoveRecord(record.kind, record.slot)
 			return
 		end
@@ -864,18 +889,21 @@ local function EnsurePool()
 	return true
 end
 
-local function Place(kind, payload, x, y, icon)
-	if kind ~= "spell" and kind ~= "item" and kind ~= "macro" and kind ~= "launcher" then
+local function Place(kind, payload, x, y, icon, petCast)
+	if kind ~= "spell" and kind ~= "item" and kind ~= "macro" and kind ~= "launcher" and kind ~= "pet" then
+		return
+	end
+	if kind == "pet" and petCast ~= "spell" and petCast ~= "action" then
 		return
 	end
 	icon = Logic.UsableTexture(icon)
 	if InCombatLockdown() then
-		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon }
+		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon, petCast = petCast }
 		LB.Say("Will place that after combat.")
 		return
 	end
 	if not EnsurePool() then
-		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon }
+		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon, petCast = petCast }
 		return
 	end
 	local list = LB.DB().buttons
@@ -901,10 +929,15 @@ local function Place(kind, payload, x, y, icon)
 		record.chrome, record.atlas, record.portrait = Logic.FaceFields(record, payload)
 	elseif kind == "spell" then
 		record.class = LB.PlayerClass()
+	elseif kind == "pet" then
+		record.petCast = petCast
 	end
 	table.insert(list, record)
 	local plan = Logic.Drop(list, record.id, { record.id }, x, y, LB.ScaleOf)
 	Configure(LB.ButtonFor(record), record)
+	if LB.SyncSpellRanges then
+		LB.SyncSpellRanges()
+	end
 	if plan and plan.shift then
 		PlaceIds(plan.shift.ids)
 	end

@@ -82,7 +82,7 @@ local function FinishDrop()
 		return
 	end
 	dropBusy = true
-	local kind, payload, icon
+	local kind, payload, icon, petCast, bookSlot
 	if LB.dragLauncher then
 		kind = "launcher"
 		payload = LB.dragLauncher.payload
@@ -91,6 +91,8 @@ local function FinishDrop()
 		kind = LB.dragSpell.kind
 		payload = LB.dragSpell.payload
 		icon = LB.dragSpell.icon
+		petCast = LB.dragSpell.petCast
+		bookSlot = LB.dragSpell.bookSlot
 		LB.dragSpell = nil
 	else
 		HideReceive()
@@ -100,7 +102,7 @@ local function FinishDrop()
 	local over = LB.ActionButtonUnderCursor()
 	local intent = Logic.DropIntent("catalog", over ~= nil, kind)
 	if intent == "action" then
-		LB.PlaceIntoAction(over, kind, payload)
+		LB.PlaceIntoAction(over, kind, payload, petCast, bookSlot)
 		if ClearCursor then
 			ClearCursor()
 		end
@@ -120,7 +122,7 @@ local function FinishDrop()
 	end
 	HideReceive()
 	if not onBook and x then
-		LB.Place(kind, payload, x, y, icon)
+		LB.Place(kind, payload, x, y, icon, petCast)
 	end
 	dropBusy = false
 end
@@ -159,7 +161,7 @@ local function UpdateCooldowns()
 	for i = 1, Logic.ACTION_SLOTS do
 		local button = LB.actions[i]
 		local record = LB.Find("spell", i)
-		if button and button:IsShown() and record and (record.kind == "spell" or record.kind == "item") then
+		if button and button:IsShown() and record and (record.kind == "spell" or record.kind == "item" or (record.kind == "pet" and record.petCast == "spell")) then
 			LB.ApplyActionOverlay(button)
 		end
 	end
@@ -579,7 +581,7 @@ local function LayoutCatalog(items, scheduleItems)
 	if colWidth < 40 then
 		colWidth = 40
 	end
-	local sections = Logic.BuildSections(SkillLines(), SpellAt, Logic.VisibleLaunchers(BindingExists), items, Logic.Macros(_G))
+	local sections = Logic.BuildSections(SkillLines(), SpellAt, Logic.VisibleLaunchers(BindingExists), items, Logic.Macros(_G), Logic.PetBookEntries(C_SpellBook, Enum, PetHasSpellbook))
 	local y = 0
 	local col = 0
 	local buttonIndex = 0
@@ -663,12 +665,12 @@ local function LayoutCatalog(items, scheduleItems)
 						ShowReceive(true)
 						return
 					end
-					if dragged.kind == "spell" then
+					if dragged.kind == "spell" or dragged.kind == "pet" then
 						if InCombatLockdown() then
 							LB.Say("Cannot pick up a spell in combat.")
 							return
 						end
-						LB.dragSpell = { kind = "spell", payload = dragged.payload, icon = dragged.icon }
+						LB.dragSpell = { kind = dragged.kind, payload = dragged.payload, icon = dragged.icon, petCast = dragged.petCast, bookSlot = dragged.bookSlot }
 						ShowSpellGhost(dragged.icon)
 						ShowReceive(true)
 						return
