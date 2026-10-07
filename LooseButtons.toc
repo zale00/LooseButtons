@@ -1,8 +1,9 @@
 ## Interface: 16001
 ## Title: Loose Buttons
 ## Notes: All the buttons. Not a bar.
+## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## Author: Loose Buttons
-## Version: 0.1.3
+## Version: 0.1.4
 ## SavedVariables: LooseButtonsDB
 ## X-Flavor: Mainline
 
@@ -10,3 +11,8 @@
 
 Logic.lua
 LooseButtons.lua
+Chrome.lua
+Binds.lua
+Place.lua
+Catalog.lua
+Blizzard.lua

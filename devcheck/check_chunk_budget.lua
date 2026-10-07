@@ -137,14 +137,23 @@ for line in toc:gmatch("[^\r\n]+") do
 end
 
 local spareByName = {}
+local linesByName = {}
 for _, name in ipairs(listed) do
 	local source = readFile(addonPath(name))
 	local spare = -1
+	local lines = 0
 	if source then
 		spare = spareCount(source)
+		for _ in source:gmatch("\n") do
+			lines = lines + 1
+		end
+		if source:sub(-1) ~= "\n" then
+			lines = lines + 1
+		end
 	end
 	local fileName = baseName(name)
 	spareByName[fileName] = spare
+	linesByName[fileName] = lines
 	print(fileName .. " spare " .. spare)
 end
 
@@ -154,12 +163,15 @@ local function deny(message)
 	io.stderr:write(message .. "\n")
 end
 
-if spareByName["LooseButtons.lua"] ~= 0 then
-	deny("LooseButtons.lua spare is " .. tostring(spareByName["LooseButtons.lua"]))
-end
-local logicSpare = spareByName["Logic.lua"]
-if not logicSpare or logicSpare < 40 then
-	deny("Logic.lua spare is " .. tostring(logicSpare))
+for _, name in ipairs(listed) do
+	local fileName = baseName(name)
+	local spare = spareByName[fileName]
+	if not spare or spare < 40 then
+		deny(fileName .. " spare is " .. tostring(spare))
+	end
+	if fileName ~= "Logic.lua" and linesByName[fileName] > 1600 then
+		deny(fileName .. " is " .. tostring(linesByName[fileName]) .. " lines")
+	end
 end
 local interface = interfaceProblem(toc)
 if interface then
