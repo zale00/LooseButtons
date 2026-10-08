@@ -290,36 +290,176 @@ local function RestoreIcon(icon)
 	end
 end
 
+local function Secret(value)
+	return type(issecretvalue) == "function" and issecretvalue(value)
+end
+
+local function SpellUsable(spellID)
+	if type(C_Spell) ~= "table" or type(C_Spell.IsSpellUsable) ~= "function" then
+		return nil
+	end
+	if Secret(spellID) then
+		return nil
+	end
+	if type(spellID) ~= "number" and type(spellID) ~= "string" then
+		return nil
+	end
+	return C_Spell.IsSpellUsable(spellID)
+end
+
+local function ItemUsable(itemID)
+	if type(C_Item) ~= "table" or type(C_Item.IsUsableItem) ~= "function" then
+		return nil
+	end
+	if Secret(itemID) then
+		return nil
+	end
+	return C_Item.IsUsableItem(itemID)
+end
+
+local function MacroUsable(payload)
+	if type(GetMacroSpell) ~= "function" or Secret(payload) then
+		return nil
+	end
+	local first, _, third = GetMacroSpell(payload)
+	if Secret(first) or Secret(third) then
+		return nil
+	end
+	if type(third) == "number" then
+		return SpellUsable(third)
+	end
+	if type(first) == "number" then
+		return SpellUsable(first)
+	end
+	if type(first) == "string" and first ~= "" then
+		return SpellUsable(first)
+	end
+	return nil
+end
+
+local function QueryUsability(record)
+	if not record then
+		return nil
+	end
+	if record.kind == "spell" or (record.kind == "pet" and record.petCast == "spell") then
+		return SpellUsable(record.payload)
+	end
+	if record.kind == "item" then
+		return ItemUsable(record.payload)
+	end
+	if record.kind == "macro" then
+		return MacroUsable(record.payload)
+	end
+	if record.kind == "pet" and record.petCast == "action" and type(GetPetActionSlotUsable) == "function" then
+		if Secret(record.payload) or type(record.payload) ~= "number" then
+			return nil
+		end
+		local usable = GetPetActionSlotUsable(record.payload)
+		if Secret(usable) then
+			return usable, false
+		end
+		if type(usable) ~= "boolean" then
+			return nil
+		end
+		return usable, false
+	end
+	return nil
+end
+
+local function ApplyVertex(icon, r, g, b, desaturate)
+	if icon and icon.SetDesaturated then
+		icon:SetDesaturated(desaturate and true or false)
+	end
+	if icon and icon.SetVertexColor and type(r) == "number" then
+		icon:SetVertexColor(r, g, b)
+	end
+end
+
+local function CurveChannel(curve, isUsable, insufficientPower, full, power, blocked)
+	local dim = curve(insufficientPower, power, blocked)
+	return curve(isUsable, full, dim)
+end
+
+local function PaintSecretVertex(icon, isUsable, insufficientPower)
+	local curve = type(C_CurveUtil) == "table" and C_CurveUtil.EvaluateColorValueFromBoolean
+	if type(curve) ~= "function" or not icon or not icon.SetVertexColor then
+		return false
+	end
+	if not Secret(insufficientPower) and type(insufficientPower) ~= "boolean" then
+		insufficientPower = false
+	end
+	local full = Logic.USABLE_VERTEX
+	local power = Logic.POWER_VERTEX
+	local blocked = Logic.BLOCKED_VERTEX
+	local painted = pcall(function()
+		icon:SetVertexColor(
+			CurveChannel(curve, isUsable, insufficientPower, full[1], power[1], blocked[1]),
+			CurveChannel(curve, isUsable, insufficientPower, full[2], power[2], blocked[2]),
+			CurveChannel(curve, isUsable, insufficientPower, full[3], power[3], blocked[3])
+		)
+	end)
+	if not painted then
+		return false
+	end
+	if icon.SetDesaturated then
+		icon:SetDesaturated(false)
+	end
+	return true
+end
+
+local function PaintUsability(icon, record, look)
+	if not Logic.UsabilityTintEnabled(LB.DB()) then
+		return false
+	end
+	local isUsable, insufficientPower = QueryUsability(record)
+	local usableSecret = Secret(isUsable)
+	local powerSecret = Secret(insufficientPower)
+	if not usableSecret and type(isUsable) ~= "boolean" then
+		return false
+	end
+	if usableSecret or powerSecret then
+		PaintSecretVertex(icon, isUsable, insufficientPower)
+		return true
+	end
+	if not powerSecret and type(insufficientPower) ~= "boolean" then
+		insufficientPower = false
+	end
+	local r, g, b, desaturate = Logic.IconTint(look, isUsable, insufficientPower)
+	ApplyVertex(icon, r, g, b, desaturate)
+	return true
+end
+
 local function PaintItemCount(button, record)
 	PlaceCount(button)
 	local text = button.lbCountText
 	local icon = button.icon
-	if not record or record.kind ~= "item" then
+	local look
+	if record and record.kind == "item" then
+		local count = ItemCount(record.payload)
+		local secret = Secret(count)
+		if secret then
+			text:SetText(count)
+			text:SetTextColor(1, 1, 1)
+		else
+			look = Logic.ItemCountLook(count)
+			if look then
+				text:SetText(look.text)
+				text:SetTextColor(look.r, look.g, look.b)
+			else
+				text:SetText("")
+			end
+		end
+	else
 		text:SetText("")
-		RestoreIcon(icon)
+	end
+	if record and PaintUsability(icon, record, look) then
 		return
 	end
-	local count = ItemCount(record.payload)
-	local secret = type(issecretvalue) == "function" and issecretvalue(count)
-	if secret then
-		text:SetText(count)
-		text:SetTextColor(1, 1, 1)
+	if look then
+		ApplyVertex(icon, look.vertexR, look.vertexG, look.vertexB, look.desaturate)
 		return
 	end
-	local look = Logic.ItemCountLook(count)
-	if not look then
-		text:SetText("")
-		RestoreIcon(icon)
-		return
-	end
-	text:SetText(look.text)
-	text:SetTextColor(look.r, look.g, look.b)
-	if icon and icon.SetDesaturated then
-		icon:SetDesaturated(look.desaturate)
-	end
-	if icon and icon.SetVertexColor then
-		icon:SetVertexColor(look.vertexR, look.vertexG, look.vertexB)
-	end
+	RestoreIcon(icon)
 end
 
 local function ApplyRecordCooldown(button, record)
@@ -356,6 +496,19 @@ local function ApplyActionOverlay(button)
 		ApplyRecordCooldown(button, record)
 	end
 	PaintItemCount(button, record)
+end
+
+local function UpdateUsability()
+	if not LB.poolReady then
+		return
+	end
+	local i
+	for i = 1, Logic.ACTION_SLOTS do
+		local button = LB.actions[i]
+		if button and button:IsShown() then
+			PaintItemCount(button, LB.Find("spell", i))
+		end
+	end
 end
 
 local function ButtonLayout(button)
@@ -639,6 +792,7 @@ local function ApplyLauncherTheme(id)
 end
 
 LB.ApplyActionOverlay = ApplyActionOverlay
+LB.UpdateUsability = UpdateUsability
 LB.ApplyLauncherTheme = ApplyLauncherTheme
 LB.ApplyTheme = ApplyTheme
 LB.ButtonLayout = ButtonLayout

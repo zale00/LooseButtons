@@ -1208,6 +1208,7 @@ Logic.HELP = {
 	{ gesture = "Clear", detail = "Asks, then removes every button. /loose reset skips the ask." },
 	{ gesture = "Edit", detail = "Hover a button, then press a key, a mouse button past Right, the wheel, or a controller button the game already reports. Escape clears it. Edit or Escape ends. /loose does the same." },
 	{ gesture = "Lock", detail = "Stops moves, snaps, and deletes until you click again." },
+	{ gesture = "/loose tint", detail = "Icons match the action bar. Blue means not enough power. Gray means it cannot be used. Full color means it can. The command turns that tint off and on." },
 }
 
 Logic.DEFAULT_THEME = "elevated_classic"
@@ -1343,6 +1344,44 @@ end
 
 function Logic.SectionHeaderInset()
 	return -Logic.SECTION_STACK.band
+end
+
+Logic.USABLE_VERTEX = { 1, 1, 1 }
+Logic.POWER_VERTEX = { 0.5, 0.5, 1 }
+Logic.BLOCKED_VERTEX = { 0.4, 0.4, 0.4 }
+
+function Logic.UsabilityTintEnabled(profile)
+	if type(profile) ~= "table" then
+		return true
+	end
+	return profile.usabilityTint ~= false
+end
+
+function Logic.UsabilityVertex(isUsable, insufficientPower)
+	if type(isUsable) ~= "boolean" or type(insufficientPower) ~= "boolean" then
+		return nil
+	end
+	local row = Logic.BLOCKED_VERTEX
+	if isUsable then
+		row = Logic.USABLE_VERTEX
+	elseif insufficientPower then
+		row = Logic.POWER_VERTEX
+	end
+	return row[1], row[2], row[3]
+end
+
+function Logic.IconTint(countLook, isUsable, insufficientPower)
+	if type(countLook) == "table" and countLook.desaturate == true then
+		return countLook.vertexR, countLook.vertexG, countLook.vertexB, true
+	end
+	local r, g, b = Logic.UsabilityVertex(isUsable, insufficientPower)
+	if r then
+		return r, g, b, false
+	end
+	if type(countLook) == "table" then
+		return countLook.vertexR, countLook.vertexG, countLook.vertexB, countLook.desaturate == true
+	end
+	return 1, 1, 1, false
 end
 
 function Logic.ItemCountLook(count)
@@ -1931,6 +1970,7 @@ local PROFILE_FIELDS = {
 	"launcherScale",
 	"launcherThemeSeparate",
 	"launcherTheme",
+	"usabilityTint",
 }
 
 local function profileName(name)
@@ -1973,6 +2013,7 @@ function Logic.Profile(raw)
 		launcherScale = launcherScale,
 		launcherThemeSeparate = raw.launcherThemeSeparate == true,
 		launcherTheme = launcherTheme,
+		usabilityTint = raw.usabilityTint ~= false,
 	}
 end
 

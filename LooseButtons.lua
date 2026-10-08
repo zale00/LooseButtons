@@ -220,6 +220,10 @@ events:RegisterEvent("UPDATE_MACROS")
 events:RegisterEvent("SPELL_RANGE_CHECK_UPDATE")
 events:RegisterEvent("PLAYER_TARGET_CHANGED")
 events:RegisterEvent("PET_BAR_UPDATE")
+events:RegisterEvent("SPELL_UPDATE_USABLE")
+events:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
+events:RegisterEvent("PET_BAR_UPDATE_USABLE")
+events:RegisterEvent("UNIT_POWER_FREQUENT")
 local rangeElapsed = 0
 events:SetScript("OnUpdate", function(_, elapsed)
 	if type(LB.RefreshPetActionRanges) ~= "function" then
@@ -319,6 +323,21 @@ events:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 		LB.UpdateCooldowns()
 		return
 	end
+	if event == "SPELL_UPDATE_USABLE" or event == "ACTIONBAR_UPDATE_USABLE" or event == "PET_BAR_UPDATE_USABLE" then
+		if type(LB.UpdateUsability) == "function" then
+			LB.UpdateUsability()
+		end
+		return
+	end
+	if event == "UNIT_POWER_FREQUENT" then
+		local secretUnit = type(issecretvalue) == "function" and issecretvalue(arg1)
+		if secretUnit or arg1 == "player" then
+			if type(LB.UpdateUsability) == "function" then
+				LB.UpdateUsability()
+			end
+		end
+		return
+	end
 	if event == "UPDATE_BINDINGS" then
 		LB.CaptureCharacterBinds()
 		LB.RefreshHotkeys()
@@ -403,6 +422,19 @@ SlashCmdList["LOOSEBUTTONS"] = function(msg)
 	end
 	if msg == "bind" or msg == "keybind" or msg == "" then
 		LB.ToggleBind()
+		return
+	end
+	if msg == "tint" then
+		local live = LB.DB()
+		live.usabilityTint = not Logic.UsabilityTintEnabled(live)
+		if type(LB.UpdateUsability) == "function" then
+			LB.UpdateUsability()
+		end
+		if live.usabilityTint then
+			LB.Say("Usability tint on.")
+		else
+			LB.Say("Usability tint off.")
+		end
 		return
 	end
 	LB.Say("Unknown command. /loose help")

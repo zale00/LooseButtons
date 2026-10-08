@@ -6,6 +6,7 @@ Drop next to another button and it snaps flush. Green edges show the link before
 
 **Also in the mix**
 
+- Icons tint like the default action bar. Blue means not enough power, gray means it cannot be used, and full color means it can. `/loose tint` turns that off.
 - Themes and scale (including Character & info launchers)
 - Layouts you can save, share (`LB1!...`), and swap per character
 - Keybinds. Hit Edit, hover a button, then press a key, a mouse button, the wheel, or a controller button. Blizzard's Quick Keybind does the same thing.

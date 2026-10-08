@@ -1,5 +1,11 @@
 # LooseButtons
 
+## 0.1.6
+
+- Icons tint like the default action bar. Blue means you are short on power. Gray means the action cannot be used. A reactive ability lights up when it becomes usable.
+- `/loose tint` turns that tint off and on. It starts on.
+- Pet actions are gray or full color only.
+
 ## 0.1.5
 
 - Ranged spell hotkeys turn red when the target is out of range
