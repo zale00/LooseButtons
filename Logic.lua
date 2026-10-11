@@ -374,8 +374,12 @@ function Logic.Normalize(list)
 						chrome, atlas, portrait = Logic.FaceFields(raw, payload)
 					end
 					local class
+					local keepRank
 					if kind == "spell" then
 						class = Logic.ClassToken(raw.class)
+						if raw.keepRank == true then
+							keepRank = true
+						end
 					end
 					local record = {
 						id = Logic.RecordId(kind, slot),
@@ -383,6 +387,7 @@ function Logic.Normalize(list)
 						payload = payload,
 						petCast = petCast,
 						class = class,
+						keepRank = keepRank,
 						icon = Logic.UsableTexture(icon),
 						chrome = chrome,
 						atlas = atlas,
@@ -1196,6 +1201,7 @@ Logic.PAGE_COMMANDS = {
 
 Logic.HELP = {
 	{ gesture = "Drag from the catalog", detail = "Place it on open ground. Release over the spellbook to cancel." },
+	{ gesture = "Rank on a catalog spell", detail = "Click the rank to step down. Drag places that rank. It starts at the highest rank you know." },
 	{ gesture = "Drop on an action button", detail = "Put that spell or item on the action slot." },
 	{ gesture = "Left-drag", detail = "Move one button. It snaps. A gap or a seam makes room." },
 	{ gesture = "Shift-drag", detail = "Move a snapped group together." },
@@ -1654,11 +1660,72 @@ local function petSectionTitle()
 	return "Pet"
 end
 
+function Logic.CatalogSpell(name, members)
+	local chosen = members[#members]
+	local ranks
+	if type(members) == "table" and #members > 1 then
+		local seen = {}
+		local ranked = true
+		local i
+		for i = 1, #members do
+			local rank = members[i].rank
+			if not rank or seen[rank] then
+				ranked = false
+				break
+			end
+			seen[rank] = true
+		end
+		if ranked then
+			ranks = {}
+			for i = 1, #members do
+				ranks[i] = {
+					rank = members[i].rank,
+					payload = members[i].payload,
+					icon = members[i].icon,
+				}
+			end
+			table.sort(ranks, function(a, b)
+				return a.rank < b.rank
+			end)
+			chosen = ranks[#ranks]
+		end
+	end
+	local entry = {
+		kind = "spell",
+		payload = chosen.payload,
+		name = name,
+		icon = chosen.icon,
+		chrome = "action",
+	}
+	if ranks then
+		entry.ranks = ranks
+	end
+	return entry
+end
+
+function Logic.StepSpellRank(ranks, payload)
+	if type(ranks) ~= "table" or #ranks < 2 then
+		return nil
+	end
+	local index
+	local i
+	for i = 1, #ranks do
+		local row = ranks[i]
+		if type(row) == "table" and row.payload == payload then
+			index = i
+			break
+		end
+	end
+	if not index or index == 1 then
+		return ranks[#ranks]
+	end
+	return ranks[index - 1]
+end
+
 function Logic.BuildSections(skillLines, spellAt, launchers, items, macros, pets)
 	local sections = {}
 	if type(skillLines) == "table" and type(spellAt) == "function" then
 		local seenID = {}
-		local seenName = {}
 		local lineIndex
 		for lineIndex = 1, #skillLines do
 			local line = skillLines[lineIndex]
@@ -1667,40 +1734,35 @@ function Logic.BuildSections(skillLines, spellAt, launchers, items, macros, pets
 				local offset = line.itemIndexOffset or 0
 				local count = line.numSpellBookItems or 0
 				local entries = {}
-				local nameAt = {}
+				local buckets = {}
+				local order = {}
 				local slot
 				for slot = offset + 1, offset + count do
 					local spell = spellAt(slot)
 					local id = spellIdentity(spell)
-					if id and spell.isSpell and not spell.isPassive and not spell.isOffSpec then
+					if id and spell.isSpell and not spell.isPassive and not spell.isOffSpec and not seenID[id] then
+						seenID[id] = true
 						local name = spell.name
 						if type(name) ~= "string" or name == "" then
 							name = "Spell " .. id
 						end
-						if seenID[id] then
-							id = nil
-						elseif seenName[name] then
-							local at = nameAt[name]
-							if at then
-								entries[at].payload = id
-								entries[at].icon = Logic.UsableTexture(spell.iconID) or entries[at].icon
-								seenID[id] = true
-							end
-							id = nil
+						local bucket = buckets[name]
+						if not bucket then
+							bucket = {}
+							buckets[name] = bucket
+							order[#order + 1] = name
 						end
-						if id then
-							table.insert(entries, {
-								kind = "spell",
-								payload = id,
-								name = name,
-								icon = Logic.UsableTexture(spell.iconID),
-								chrome = "action",
-							})
-							seenID[id] = true
-							seenName[name] = true
-							nameAt[name] = #entries
-						end
+						bucket[#bucket + 1] = {
+							payload = id,
+							rank = Logic.SpellRank(spell),
+							icon = Logic.UsableTexture(spell.iconID),
+						}
 					end
+				end
+				local nameIndex
+				for nameIndex = 1, #order do
+					local name = order[nameIndex]
+					table.insert(entries, Logic.CatalogSpell(name, buckets[name]))
 				end
 				if #entries > 0 then
 					table.insert(sections, { title = line.name or "Spells", entries = entries })
@@ -1907,7 +1969,10 @@ function Logic.UpgradeSpellRanks(records, skillLines, spellAt, baseOf, nameOf, r
 			local payload = record.payload
 			local owned = owners[payload]
 			local picked
-			if owned and #owned == 1 then
+			local held = record.keepRank == true and owned
+			if held then
+				picked = nil
+			elseif owned and #owned == 1 then
 				local members = owned[1].members
 				local currentRank
 				local memberIndex
@@ -1954,6 +2019,7 @@ function Logic.UpgradeSpellRanks(records, skillLines, spellAt, baseOf, nameOf, r
 				else
 					record.icon = nil
 				end
+				record.keepRank = nil
 				changed = true
 			end
 		end

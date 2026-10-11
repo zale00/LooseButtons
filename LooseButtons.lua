@@ -287,7 +287,7 @@ events:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 		if LB.pending and not InCombatLockdown() then
 			local pending = LB.pending
 			LB.pending = nil
-			LB.Place(pending.kind, pending.payload, pending.x, pending.y, pending.icon, pending.petCast)
+			LB.Place(pending.kind, pending.payload, pending.x, pending.y, pending.icon, pending.petCast, pending.keepRank)
 		end
 		if LB.pendingDragType and not InCombatLockdown() then
 			local pendingType = LB.pendingDragType

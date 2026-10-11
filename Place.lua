@@ -889,7 +889,7 @@ local function EnsurePool()
 	return true
 end
 
-local function Place(kind, payload, x, y, icon, petCast)
+local function Place(kind, payload, x, y, icon, petCast, keepRank)
 	if kind ~= "spell" and kind ~= "item" and kind ~= "macro" and kind ~= "launcher" and kind ~= "pet" then
 		return
 	end
@@ -898,12 +898,12 @@ local function Place(kind, payload, x, y, icon, petCast)
 	end
 	icon = Logic.UsableTexture(icon)
 	if InCombatLockdown() then
-		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon, petCast = petCast }
+		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon, petCast = petCast, keepRank = keepRank }
 		LB.Say("Will place that after combat.")
 		return
 	end
 	if not EnsurePool() then
-		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon, petCast = petCast }
+		LB.pending = { kind = kind, payload = payload, x = x, y = y, icon = icon, petCast = petCast, keepRank = keepRank }
 		return
 	end
 	local list = LB.DB().buttons
@@ -929,6 +929,9 @@ local function Place(kind, payload, x, y, icon, petCast)
 		record.chrome, record.atlas, record.portrait = Logic.FaceFields(record, payload)
 	elseif kind == "spell" then
 		record.class = LB.PlayerClass()
+		if keepRank then
+			record.keepRank = true
+		end
 	elseif kind == "pet" then
 		record.petCast = petCast
 	end

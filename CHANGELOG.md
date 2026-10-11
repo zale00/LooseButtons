@@ -1,5 +1,10 @@
 # LooseButtons
 
+## 0.1.7
+
+- Help lines no longer cover each other when the text wraps. The window grows, and it scrolls if your screen is short.
+- Spells you know at more than one rank start at the highest. Click the rank to step down, then drag that rank onto the screen. It stays at the rank you picked.
+
 ## 0.1.6
 
 - Icons tint like the default action bar. Blue means you are short on power. Gray means the action cannot be used. A reactive ability lights up when it becomes usable.

@@ -82,7 +82,7 @@ local function FinishDrop()
 		return
 	end
 	dropBusy = true
-	local kind, payload, icon, petCast, bookSlot
+	local kind, payload, icon, petCast, bookSlot, keepRank
 	if LB.dragLauncher then
 		kind = "launcher"
 		payload = LB.dragLauncher.payload
@@ -93,6 +93,7 @@ local function FinishDrop()
 		icon = LB.dragSpell.icon
 		petCast = LB.dragSpell.petCast
 		bookSlot = LB.dragSpell.bookSlot
+		keepRank = LB.dragSpell.keepRank
 		LB.dragSpell = nil
 	else
 		HideReceive()
@@ -122,7 +123,7 @@ local function FinishDrop()
 	end
 	HideReceive()
 	if not onBook and x then
-		LB.Place(kind, payload, x, y, icon, petCast)
+		LB.Place(kind, payload, x, y, icon, petCast, keepRank)
 	end
 	dropBusy = false
 end
@@ -550,6 +551,85 @@ local function ShowSectionScale(header)
 	LB.launcherThemeDropdown = dropdown
 end
 
+local function ApplyHeldRank(entry)
+	if type(entry) ~= "table" or type(entry.ranks) ~= "table" or #entry.ranks < 2 then
+		return nil
+	end
+	local pickedId = LB.rankPick and LB.rankPick[entry.name]
+	local chosen
+	local i
+	if pickedId then
+		for i = 1, #entry.ranks do
+			if entry.ranks[i].payload == pickedId then
+				chosen = entry.ranks[i]
+				break
+			end
+		end
+	end
+	if not chosen then
+		chosen = entry.ranks[#entry.ranks]
+	end
+	entry.payload = chosen.payload
+	if chosen.icon then
+		entry.icon = chosen.icon
+	end
+	local top = entry.ranks[#entry.ranks]
+	if top and chosen.payload ~= top.payload then
+		entry.keepRank = true
+	else
+		entry.keepRank = nil
+	end
+	return chosen
+end
+
+local function EnsureRankButton(row)
+	if row.rankButton then
+		return row.rankButton
+	end
+	local button = CreateFrame("Button", nil, row)
+	button:SetSize(160, 16)
+	button:RegisterForDrag("LeftButton")
+	local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	label:SetAllPoints(button)
+	label:SetJustifyH("LEFT")
+	button.label = label
+	button:SetScript("OnClick", function(self)
+		local host = self:GetParent()
+		local entry = host and host.entry
+		if not entry then
+			return
+		end
+		local picked = Logic.StepSpellRank(entry.ranks, entry.payload)
+		if not picked then
+			return
+		end
+		LB.rankPick = LB.rankPick or {}
+		LB.rankPick[entry.name] = picked.payload
+		entry.payload = picked.payload
+		if picked.icon then
+			entry.icon = picked.icon
+		end
+		local top = entry.ranks[#entry.ranks]
+		if top and picked.payload ~= top.payload then
+			entry.keepRank = true
+		else
+			entry.keepRank = nil
+		end
+		PaintCatalogIcon(host.icon, entry)
+		self.label:SetText("Rank " .. picked.rank)
+		ApplySpellbookColor(self.label)
+	end)
+	button:SetScript("OnDragStart", function(self)
+		local host = self:GetParent()
+		local drag = host and host.GetScript and host:GetScript("OnDragStart")
+		if drag then
+			drag(host)
+		end
+	end)
+	row.rankButton = button
+	return button
+end
+
 local function LayoutCatalog(items, scheduleItems)
 	local page = LB.page
 	if not page then
@@ -651,8 +731,6 @@ local function LayoutCatalog(items, scheduleItems)
 				row.icon:SetPoint("LEFT", row, "LEFT", 0, 0)
 				row.nameText = row:CreateFontString(nil, "OVERLAY", "SystemFont_Large")
 				row.nameText:SetJustifyH("LEFT")
-				row.nameText:SetPoint("LEFT", row, "LEFT", 50, 0)
-				row.nameText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
 				row:RegisterForDrag("LeftButton")
 				row:SetScript("OnDragStart", function(self)
 					local dragged = self.entry
@@ -670,7 +748,7 @@ local function LayoutCatalog(items, scheduleItems)
 							LB.Say("Cannot pick up a spell in combat.")
 							return
 						end
-						LB.dragSpell = { kind = dragged.kind, payload = dragged.payload, icon = dragged.icon, petCast = dragged.petCast, bookSlot = dragged.bookSlot }
+						LB.dragSpell = { kind = dragged.kind, payload = dragged.payload, icon = dragged.icon, petCast = dragged.petCast, bookSlot = dragged.bookSlot, keepRank = dragged.keepRank }
 						ShowSpellGhost(dragged.icon)
 						ShowReceive(true)
 						return
@@ -687,12 +765,37 @@ local function LayoutCatalog(items, scheduleItems)
 				end)
 				LB.catalogButtons[buttonIndex] = row
 			end
+			local shownRank = ApplyHeldRank(entry)
 			row.entry = entry
 			row:SetSize(colWidth, rowH)
 			row.icon:SetSize(40, 40)
 			PaintCatalogIcon(row.icon, entry)
 			row.nameText:SetText(entry.name or "")
 			ApplySpellbookColor(row.nameText)
+			row.nameText:ClearAllPoints()
+			if shownRank then
+				local rankButton = EnsureRankButton(row)
+				rankButton.label:SetText("Rank " .. shownRank.rank)
+				ApplySpellbookColor(rankButton.label)
+				rankButton:ClearAllPoints()
+				rankButton:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 50, 4)
+				rankButton:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+				rankButton:Show()
+				row.nameText:SetPoint("TOPLEFT", row, "TOPLEFT", 50, -6)
+				row.nameText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+				if row.nameText.SetWordWrap then
+					row.nameText:SetWordWrap(false)
+				end
+			else
+				if row.rankButton then
+					row.rankButton:Hide()
+				end
+				row.nameText:SetPoint("LEFT", row, "LEFT", 50, 0)
+				row.nameText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+				if row.nameText.SetWordWrap then
+					row.nameText:SetWordWrap(true)
+				end
+			end
 			row:ClearAllPoints()
 			row:SetPoint("TOPLEFT", content, "TOPLEFT", pad + col * (colWidth + xPad), -y)
 			row:Show()
@@ -1327,14 +1430,138 @@ local function HideNamed(name)
 	end
 end
 
+local function HelpViewLimit()
+	local h
+	if UIParent and UIParent.GetHeight then
+		h = UIParent:GetHeight()
+	end
+	if type(issecretvalue) == "function" and issecretvalue(h) then
+		return nil
+	end
+	if type(h) ~= "number" or h < 200 then
+		return nil
+	end
+	return h - 80
+end
+
+local function TextBlockHeight(fontString)
+	local h
+	if fontString and fontString.GetStringHeight then
+		h = fontString:GetStringHeight()
+	end
+	if type(issecretvalue) == "function" and issecretvalue(h) then
+		return 16
+	end
+	if type(h) ~= "number" or h < 1 then
+		return 16
+	end
+	return h
+end
+
+local function LayoutHelp(frame, deferred)
+	local rows = Logic.HELP
+	local content = frame.helpContent
+	local lines = frame.helpLines
+	local y = 0
+	local i
+	for i = 1, #rows do
+		local spec = rows[i]
+		local line = lines[i]
+		if not line then
+			line = {
+				gesture = content:CreateFontString(nil, "OVERLAY", "GameFontNormal"),
+				detail = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"),
+			}
+			line.gesture:SetJustifyH("LEFT")
+			line.detail:SetJustifyH("LEFT")
+			if line.gesture.SetJustifyV then
+				line.gesture:SetJustifyV("TOP")
+			end
+			if line.detail.SetJustifyV then
+				line.detail:SetJustifyV("TOP")
+			end
+			lines[i] = line
+		end
+		if line.gesture.SetWidth then
+			line.gesture:SetWidth(180)
+		end
+		if line.detail.SetWidth then
+			line.detail:SetWidth(410)
+		end
+		line.gesture:SetText(spec.gesture)
+		line.detail:SetText(spec.detail)
+		local gestureH = TextBlockHeight(line.gesture)
+		local detailH = TextBlockHeight(line.detail)
+		local textH = gestureH
+		if detailH > textH then
+			textH = detailH
+		end
+		if textH < 20 then
+			textH = 20
+		end
+		if line.gesture.SetHeight then
+			line.gesture:SetHeight(textH)
+		end
+		if line.detail.SetHeight then
+			line.detail:SetHeight(textH)
+		end
+		line.gesture:ClearAllPoints()
+		line.detail:ClearAllPoints()
+		line.gesture:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -y)
+		line.detail:SetPoint("TOPLEFT", content, "TOPLEFT", 210, -y)
+		y = y + textH + 4
+	end
+	if y < 1 then
+		y = 1
+	end
+	content:SetHeight(y)
+	local full = 36 + y + 12
+	local limit = HelpViewLimit()
+	local height = full
+	if limit and full > limit then
+		height = limit
+	end
+	frame:SetSize(640, height)
+	local visible = height - 48
+	if visible < 1 then
+		visible = 1
+	end
+	local maxScroll = y - visible
+	if maxScroll < 0 then
+		maxScroll = 0
+	end
+	frame.helpScrollMax = maxScroll
+	local offset = frame.helpOffset or 0
+	if offset < 0 then
+		offset = 0
+	end
+	if offset > maxScroll then
+		offset = maxScroll
+	end
+	frame.helpOffset = offset
+	local scroll = frame.helpScroll
+	scroll:SetSize(624, visible)
+	if scroll.SetVerticalScroll then
+		scroll:SetVerticalScroll(offset)
+	end
+	if scroll.EnableMouseWheel then
+		scroll:EnableMouseWheel(maxScroll > 0)
+	end
+	if not deferred and C_Timer and C_Timer.After then
+		C_Timer.After(0, function()
+			if frame:IsShown() then
+				LayoutHelp(frame, true)
+			end
+		end)
+	end
+end
+
 local function EnsureHelpFrame()
 	if LB.helpFrame then
 		return LB.helpFrame
 	end
 	local frame = CreateFrame("Frame", "LooseButtonsHelp", UIParent)
-	local rows = Logic.HELP
-	local rowH = 20
-	frame:SetSize(640, 48 + #rows * rowH)
+	frame:SetSize(640, 48)
 	frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 	frame:SetFrameStrata("DIALOG")
 	frame:EnableMouse(true)
@@ -1344,23 +1571,37 @@ local function EnsureHelpFrame()
 	local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -14)
 	title:SetText("Help")
-	local i
-	for i = 1, #rows do
-		local row = rows[i]
-		local y = -40 - (i - 1) * rowH
-		local gesture = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-		gesture:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, y)
-		gesture:SetJustifyH("LEFT")
-		gesture:SetText(row.gesture)
-		local detail = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		detail:SetPoint("TOPLEFT", frame, "TOPLEFT", 210, y)
-		detail:SetJustifyH("LEFT")
-		if detail.SetWidth then
-			detail:SetWidth(410)
-		end
-		detail:SetText(row.detail)
+	local scroll = CreateFrame("ScrollFrame", nil, frame)
+	scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -36)
+	scroll:EnableMouse(true)
+	local content = CreateFrame("Frame", nil, scroll)
+	content:SetSize(624, 1)
+	if scroll.SetScrollChild then
+		scroll:SetScrollChild(content)
 	end
+	frame.helpScroll = scroll
+	frame.helpContent = content
+	frame.helpLines = {}
+	scroll:SetScript("OnMouseWheel", function(_, delta)
+		local maxScroll = frame.helpScrollMax or 0
+		if maxScroll <= 0 or type(delta) ~= "number" then
+			return
+		end
+		local offset = (frame.helpOffset or 0) - delta * 48
+		if offset < 0 then
+			offset = 0
+		end
+		if offset > maxScroll then
+			offset = maxScroll
+		end
+		frame.helpOffset = offset
+		LayoutHelp(frame, true)
+	end)
+	frame:SetScript("OnShow", function(self)
+		LayoutHelp(self, false)
+	end)
 	AttachDialogChrome(frame)
+	LayoutHelp(frame, true)
 	frame:Hide()
 	LB.helpFrame = frame
 	return frame
