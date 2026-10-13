@@ -230,6 +230,38 @@ local function HookBook()
 			end
 		end)
 	end
+	local claim
+	local openDecided
+	if type(book.TrySetCategory) == "function" then
+		hooksecurefunc(book, "TrySetCategory", function(self, categoryEnum)
+			-- IsShown is already true while the parent is hidden.
+			if self.IsVisible and self:IsVisible() == false and type(categoryEnum) == "number" and self.IsCategoryActive and self:IsCategoryActive(categoryEnum) == true then
+				claim = categoryEnum
+			end
+		end)
+	end
+	if type(book.HookScript) == "function" then
+		book:HookScript("OnShow", function(self)
+			if openDecided then
+				return
+			end
+			local held = claim
+			claim = nil
+			openDecided = true
+			local inCombat = false
+			if type(InCombatLockdown) == "function" and InCombatLockdown() then
+				inCombat = true
+			end
+			local choice = Logic.SpellbookOpenChoice(Logic.SpellbookTabEnabled(LB.DB()), held, inCombat, LB.tabID)
+			if choice ~= nil and self:GetTab() ~= choice then
+				self:SetTab(choice)
+			end
+		end)
+		book:HookScript("OnHide", function()
+			claim = nil
+			openDecided = false
+		end)
+	end
 	book:CreateCategoryMixins()
 end
 

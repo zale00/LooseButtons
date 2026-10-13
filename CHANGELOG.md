@@ -1,5 +1,10 @@
 # LooseButtons
 
+## 0.1.8
+
+- Opening the spellbook selects the Loose Buttons tab. That is on by default. `/loose tab` turns it off and on, and prints the new state. The help panel has a line for the command.
+- You can still click a class or pet tab, and that click stays put. In combat, the spellbook stays on the tab it already had.
+
 ## 0.1.7
 
 - Help lines no longer cover each other when the text wraps. The window grows, and it scrolls if your screen is short.

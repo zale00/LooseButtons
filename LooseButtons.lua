@@ -437,6 +437,16 @@ SlashCmdList["LOOSEBUTTONS"] = function(msg)
 		end
 		return
 	end
+	if msg == "tab" then
+		local live = LB.DB()
+		live.spellbookTab = not Logic.SpellbookTabEnabled(live)
+		if live.spellbookTab then
+			LB.Say("Spellbook tab on.")
+		else
+			LB.Say("Spellbook tab off.")
+		end
+		return
+	end
 	LB.Say("Unknown command. /loose help")
 end
 

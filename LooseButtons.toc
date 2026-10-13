@@ -3,7 +3,7 @@
 ## Notes: All the buttons. Not a bar.
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## Author: Loose Buttons
-## Version: 0.1.7
+## Version: 0.1.8
 ## SavedVariables: LooseButtonsDB
 ## X-Flavor: Mainline
 

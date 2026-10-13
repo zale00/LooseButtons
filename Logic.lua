@@ -1215,6 +1215,7 @@ Logic.HELP = {
 	{ gesture = "Edit", detail = "Hover a button, then press a key, a mouse button past Right, the wheel, or a controller button the game already reports. Escape clears it. Edit or Escape ends. /loose does the same." },
 	{ gesture = "Lock", detail = "Stops moves, snaps, and deletes until you click again." },
 	{ gesture = "/loose tint", detail = "Icons match the action bar. Blue means not enough power. Gray means it cannot be used. Full color means it can. The command turns that tint off and on." },
+	{ gesture = "/loose tab", detail = "Opening the spellbook selects Loose Buttons. The command turns that off and on. A category clicked while the book is open stays selected." },
 }
 
 Logic.DEFAULT_THEME = "elevated_classic"
@@ -1361,6 +1362,20 @@ function Logic.UsabilityTintEnabled(profile)
 		return true
 	end
 	return profile.usabilityTint ~= false
+end
+
+function Logic.SpellbookTabEnabled(profile)
+	if type(profile) ~= "table" then
+		return true
+	end
+	return profile.spellbookTab ~= false
+end
+
+function Logic.SpellbookOpenChoice(enabled, claim, inCombat, looseTabID)
+	if enabled == true and claim == nil and inCombat == false and type(looseTabID) == "number" then
+		return looseTabID
+	end
+	return nil
 end
 
 function Logic.UsabilityVertex(isUsable, insufficientPower)
@@ -2037,6 +2052,7 @@ local PROFILE_FIELDS = {
 	"launcherThemeSeparate",
 	"launcherTheme",
 	"usabilityTint",
+	"spellbookTab",
 }
 
 local function profileName(name)
@@ -2080,6 +2096,7 @@ function Logic.Profile(raw)
 		launcherThemeSeparate = raw.launcherThemeSeparate == true,
 		launcherTheme = launcherTheme,
 		usabilityTint = raw.usabilityTint ~= false,
+		spellbookTab = raw.spellbookTab ~= false,
 	}
 end
 
