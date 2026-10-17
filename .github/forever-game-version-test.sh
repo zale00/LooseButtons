@@ -73,6 +73,12 @@ body='[{"id":11101,"gameVersionTypeID":517,"name":"12.1.0"},{"id":99901,"gameVer
 if [[ "$url" == *"/files"* && "$url" != *"/upload-file" ]]; then
   body='[]'
 fi
+if [[ "$url" == "https://www.curseforge.com/api/v1/mods/"* ]]; then
+  body='{"data":[{"id":4100,"displayName":"0.1.0","fileName":"LooseButtons-0.1.0-forever.zip"}],"pagination":{"totalCount":1}}'
+fi
+if [[ "$url" == "https://api.cfwidget.com/"* ]]; then
+  body='{"files":[{"id":4100,"display":"0.1.0","name":"LooseButtons-0.1.0-forever.zip","version":"1.60.1"}]}'
+fi
 if [[ "$url" == *"/upload-file" ]]; then
   if [[ "$meta_stdin" -eq 1 ]]; then
     cat > "${CAPTURE_METADATA:?}"
@@ -111,6 +117,7 @@ import json, sys
 meta = json.load(open(sys.argv[1]))
 assert meta["gameVersions"] == [99901], meta
 assert meta["releaseType"] == "release"
+assert meta["displayName"] == "LooseButtons 0.1.1", meta
 print("gameVersions", meta["gameVersions"])
 PY
 
@@ -165,6 +172,12 @@ done
 body='[{"id":11101,"gameVersionTypeID":517,"name":"12.1.0"}]'
 if [[ "$url" == *"/files"* && "$url" != *"/upload-file" ]]; then
   body='[]'
+fi
+if [[ "$url" == "https://www.curseforge.com/api/v1/mods/"* ]]; then
+  body='{"data":[{"id":4100,"displayName":"0.1.0","fileName":"LooseButtons-0.1.0-forever.zip"}],"pagination":{"totalCount":1}}'
+fi
+if [[ "$url" == "https://api.cfwidget.com/"* ]]; then
+  body='{"files":[{"id":4100,"display":"0.1.0","name":"LooseButtons-0.1.0-forever.zip","version":"1.60.1"}]}'
 fi
 if [[ "$url" == *"/upload-file" ]]; then
   printf 'upload\n' > "${CAPTURE_METADATA:?}"

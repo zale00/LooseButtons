@@ -18,6 +18,198 @@ die() {
   exit 1
 }
 
+# Duplicate-version check. It reads only public lists: the curseforge.com file list and CFWidget.
+# The upload token gets HTTP 403 (errorCode 5100) from /api/projects/<id>/files, so that route is not used.
+# A display name hits when it equals the version or "LooseButtons <version>".
+# A file name hits when it contains LooseButtons-<version> followed by the end, ".zip", or "-",
+# so 0.1.1 matches LooseButtons-0.1.1-forever.zip and not LooseButtons-0.1.10.zip.
+# CFWidget files[].version is the game version (1.60.1), so it is never matched.
+file_match_jq='
+  def display_hit($name):
+    if ($name | type) != "string" or $name == "" then false
+    else $name == $version or $name == ("LooseButtons " + $version)
+    end;
+  def file_hit($name):
+    if ($name | type) != "string" or $name == "" then false
+    else
+      ("LooseButtons-" + $version) as $token
+      | ($name | index($token)) as $i
+      | if $i == null then false
+        else
+          ($name[$i + ($token | length):]) as $rest
+          | ($rest == "" or ($rest | startswith(".zip")) or ($rest | startswith("-")))
+        end
+    end;
+'
+
+public_get() {
+  local url=$1 dest=$2
+  # No API token on these requests.
+  curl -sS --connect-timeout 15 --max-time 30 \
+    -H "Accept: application/json" \
+    -o "$dest" -w "%{http_code}" \
+    "$url" || true
+}
+
+http_failure_detail() {
+  local code=$1 file=$2 snippet
+  if [[ -z $code || $code == "000" ]]; then
+    printf 'unreachable'
+    return
+  fi
+  if grep -qi -e '<html' -e 'cloudflare' -e 'Just a moment' "$file" 2>/dev/null; then
+    printf 'HTTP %s blocked' "$code"
+    return
+  fi
+  snippet=$(head -c 160 "$file" 2>/dev/null | tr '\n\r' '  ' || true)
+  if [[ -n $snippet ]]; then
+    printf 'HTTP %s (%s)' "$code" "$snippet"
+  else
+    printf 'HTTP %s' "$code"
+  fi
+}
+
+note_hits() {
+  local source=$1 hits=$2 any=0 fid dname fname
+  if [[ -n $hits ]]; then
+    while IFS=$'\t' read -r fid dname fname; do
+      [[ -n $fid || -n $dname || -n $fname ]] || continue
+      say "duplicate check: ${source}: found ${dup_version} (file ${fid:-unknown}, displayName '${dname}', fileName '${fname}')"
+      any=1
+      dup_found=1
+    done <<<"$hits"
+  fi
+  [[ $any -eq 1 ]]
+}
+
+curseforge_site_check() {
+  local project=$1 page=0 seen=0 total count body code hits
+  local source="curseforge.com files"
+  while true; do
+    body=$(mktemp)
+    code=$(public_get "https://www.curseforge.com/api/v1/mods/${project}/files?pageIndex=${page}&pageSize=50" "$body")
+    if [[ $code != 200 ]]; then
+      site_detail=$(http_failure_detail "$code" "$body")
+      say "duplicate check: ${source}: ${site_detail}"
+      rm -f "$body"
+      return 1
+    fi
+    if ! jq -e '.data | type == "array"' "$body" >/dev/null 2>&1; then
+      site_detail="HTTP 200 not a file list"
+      say "duplicate check: ${source}: ${site_detail}"
+      rm -f "$body"
+      return 1
+    fi
+    count=$(jq '.data | length' "$body")
+    if [[ $count -gt 0 ]] && [[ $(jq '[.data[] | select((.displayName | type == "string") or (.fileName | type == "string"))] | length' "$body") -eq 0 ]]; then
+      site_detail="HTTP 200 missing displayName and fileName"
+      say "duplicate check: ${source}: ${site_detail}"
+      rm -f "$body"
+      return 1
+    fi
+    hits=$(jq -r --arg version "$dup_version" "${file_match_jq}"'
+      .data[]
+      | select(display_hit(.displayName) or file_hit(.fileName))
+      | [(.id | tostring), (.displayName // ""), (.fileName // "")]
+      | @tsv
+    ' "$body")
+    total=$(jq -r '.pagination.totalCount // empty' "$body")
+    rm -f "$body"
+    seen=$((seen + count))
+    if note_hits "$source" "$hits"; then
+      site_detail="HTTP 200"
+      return 0
+    fi
+    if [[ ! $total =~ ^[0-9]+$ || $seen -ge $total || $count -eq 0 ]]; then
+      break
+    fi
+    page=$((page + 1))
+    if [[ $page -ge 20 ]]; then
+      site_detail="incomplete after ${seen} of ${total} files"
+      say "duplicate check: ${source}: ${site_detail}"
+      return 1
+    fi
+  done
+  site_detail="HTTP 200"
+  say "duplicate check: ${source}: HTTP 200, ${seen} file(s), ${dup_version} not listed"
+  return 0
+}
+
+cfwidget_check() {
+  local project=$1 body code count hits
+  local source="cfwidget"
+  body=$(mktemp)
+  code=$(public_get "https://api.cfwidget.com/${project}" "$body")
+  if [[ $code != 200 ]]; then
+    widget_detail=$(http_failure_detail "$code" "$body")
+    say "duplicate check: ${source}: ${widget_detail}"
+    rm -f "$body"
+    return 1
+  fi
+  if ! jq -e '.files | type == "array"' "$body" >/dev/null 2>&1; then
+    widget_detail="HTTP 200 not a file list"
+    say "duplicate check: ${source}: ${widget_detail}"
+    rm -f "$body"
+    return 1
+  fi
+  count=$(jq '.files | length' "$body")
+  if [[ $count -gt 0 ]] && [[ $(jq '[.files[] | select((.display | type == "string") or (.name | type == "string"))] | length' "$body") -eq 0 ]]; then
+    widget_detail="HTTP 200 missing display and name"
+    say "duplicate check: ${source}: ${widget_detail}"
+    rm -f "$body"
+    return 1
+  fi
+  hits=$(jq -r --arg version "$dup_version" "${file_match_jq}"'
+    .files[]
+    | select(display_hit(.display) or file_hit(.name))
+    | [(.id | tostring), (.display // ""), (.name // "")]
+    | @tsv
+  ' "$body")
+  rm -f "$body"
+  widget_detail="HTTP 200"
+  if note_hits "$source" "$hits"; then
+    return 0
+  fi
+  say "duplicate check: ${source}: HTTP 200, ${count} file(s), ${dup_version} not listed"
+  return 0
+}
+
+# Exits non-zero when the version is listed, or when neither list could be read
+# unless CF_ALLOW_UNVERIFIED_DUPLICATE_CHECK=1.
+refuse_duplicate_version() {
+  local project=$1 site_ok=0 widget_ok=0
+  dup_version=$2
+  dup_found=0
+  site_detail=""
+  widget_detail=""
+  say "duplicate check: version ${dup_version} project ${project}"
+  if curseforge_site_check "$project"; then
+    site_ok=1
+  fi
+  if cfwidget_check "$project"; then
+    widget_ok=1
+  fi
+  if [[ $dup_found -eq 1 ]]; then
+    die "refusing upload: CurseForge project ${project} already has ${dup_version}"
+  fi
+  if [[ $site_ok -eq 0 && $widget_ok -eq 0 ]]; then
+    if [[ ${CF_ALLOW_UNVERIFIED_DUPLICATE_CHECK:-} != 1 ]]; then
+      die "refusing upload: neither public file list could be read (curseforge.com files: ${site_detail}; cfwidget: ${widget_detail}). Set CF_ALLOW_UNVERIFIED_DUPLICATE_CHECK=1 to upload anyway."
+    fi
+    say "WARNING: duplicate check not verified; continuing because CF_ALLOW_UNVERIFIED_DUPLICATE_CHECK=1"
+    return 0
+  fi
+  say "duplicate check: ${dup_version} is not on project ${project}"
+}
+
+# bash upload-curseforge.sh --check-duplicate <project id> <version>
+# Runs only the public duplicate check. No token, no packaging, no upload.
+if [[ ${1:-} == "--check-duplicate" ]]; then
+  [[ ${2:-} =~ ^[0-9]+$ && -n ${3:-} ]] || die "usage: upload-curseforge.sh --check-duplicate <project id> <version>"
+  refuse_duplicate_version "$2" "$3"
+  exit 0
+fi
+
 if [[ -z ${CF_API_KEY:-} ]]; then
   die "CF_API_KEY is missing"
 fi
@@ -136,22 +328,7 @@ fi
 rm -f "$versions_body"
 say "CurseForge game version ${forever_name} id ${forever_id}"
 
-files_body="$(mktemp)"
-files_code="$(curl -sS -o "$files_body" -w "%{http_code}" \
-  -H "x-api-token: ${CF_API_KEY}" \
-  -H "Accept: application/json" \
-  "https://wow.curseforge.com/api/projects/${project_id}/files" || true)"
-say "files HTTP ${files_code}"
-if [[ "$files_code" == "200" ]] && jq -e . "$files_body" >/dev/null 2>&1; then
-  if jq -r '.. | objects | select(.fileName != null or .displayName != null) | "\(.fileName // "") \(.displayName // "")"' "$files_body" | grep -F -q "$version"; then
-    rm -f "$files_body"
-    say "skip upload: CurseForge already has ${version}"
-    git tag "cf-${version}" "$workflow_sha"
-    git push origin "refs/tags/cf-${version}"
-    exit 0
-  fi
-fi
-rm -f "$files_body"
+refuse_duplicate_version "$project_id" "$version"
 
 git fetch origin "refs/tags/${version}:refs/tags/${version}"
 git checkout --detach "$version"
@@ -194,7 +371,7 @@ if [[ ! -f CHANGELOG.md ]]; then
 fi
 meta="$(mktemp)"
 jq -n \
-  --arg displayName "$version" \
+  --arg displayName "LooseButtons ${version}" \
   --argjson gameVersion "$forever_id" \
   --arg releaseType "$release_type" \
   --rawfile changelog CHANGELOG.md \
