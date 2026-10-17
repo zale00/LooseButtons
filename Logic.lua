@@ -2471,6 +2471,13 @@ function Logic.Binds.Commands()
 	return ownedCommandList
 end
 
+function Logic.Binds.SaveSet(which)
+	if which == 1 or which == 2 then
+		return which
+	end
+	return nil
+end
+
 function Logic.Binds.All(account, key)
 	local out = {}
 	if not validKey(account, key) or type(account.chars) ~= "table" then

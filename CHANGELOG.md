@@ -1,5 +1,9 @@
 # LooseButtons
 
+## 0.1.9
+
+- Login no longer shows the `Binds.lua:497: Usage: SaveBindings(1|2)` error. Loose Buttons waits until the game reports binding set 1 or 2 before it saves your keys, then tries again on the next binding update.
+
 ## 0.1.8
 
 - Opening the spellbook selects the Loose Buttons tab. That is on by default. `/loose tab` turns it off and on, and prints the new state. The help panel has a line for the command.

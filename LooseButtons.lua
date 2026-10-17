@@ -305,6 +305,8 @@ events:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 				LB.bindsReady = nil
 				LB.RestoreLayout()
 				LB.ApplyCharacterBinds()
+			elseif LB.bindsPending then
+				LB.ApplyCharacterBinds()
 			end
 		end
 		if event == "UNIT_PORTRAIT_UPDATE" then
@@ -339,6 +341,9 @@ events:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 		return
 	end
 	if event == "UPDATE_BINDINGS" then
+		if not LB.bindsApplying and LB.bindsPending then
+			LB.ApplyCharacterBinds()
+		end
 		LB.CaptureCharacterBinds()
 		LB.RefreshHotkeys()
 		return

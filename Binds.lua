@@ -478,24 +478,39 @@ function LB.ApplyCharacterBinds()
 	if not who then
 		return
 	end
-	LB.bindsPending = nil
+	local set = Logic.Binds.SaveSet(GetCurrentBindingSet())
+	if not set then
+		LB.bindsPending = true
+		return
+	end
 	local ops = Logic.Binds.Reconcile(Logic.Binds.All(LB.Account(), who), LB.LiveBindRows())
-	LB.bindsReady = true
-	if #ops == 0 then
+	if #ops == 0 and not LB.bindsUnsaved then
+		LB.bindsPending = nil
+		LB.bindsReady = true
 		return
 	end
 	LB.bindsApplying = true
-	local i
-	for i = 1, #ops do
-		local op = ops[i]
-		if op.command then
-			SetBinding(op.key, op.command)
-		else
-			SetBinding(op.key)
+	local saved = pcall(function()
+		local i
+		for i = 1, #ops do
+			local op = ops[i]
+			if op.command then
+				SetBinding(op.key, op.command)
+			else
+				SetBinding(op.key)
+			end
 		end
-	end
-	SaveBindings(GetCurrentBindingSet())
+		SaveBindings(set)
+	end)
 	LB.bindsApplying = nil
+	if not saved then
+		LB.bindsPending = true
+		LB.bindsUnsaved = true
+		return
+	end
+	LB.bindsUnsaved = nil
+	LB.bindsPending = nil
+	LB.bindsReady = true
 end
 
 function LB.CaptureCharacterBinds()
@@ -519,15 +534,18 @@ local function BindHovered(button, key)
 	if who and Logic.Binds.Put(LB.Account(), who, command, binding) then
 		LB.ApplyCharacterBinds()
 	else
-		local old = { GetBindingKey(command) }
-		local i
-		for i = 1, #old do
-			SetBinding(old[i])
+		local set = Logic.Binds.SaveSet(GetCurrentBindingSet())
+		if set then
+			local old = { GetBindingKey(command) }
+			local i
+			for i = 1, #old do
+				SetBinding(old[i])
+			end
+			if binding ~= "CLEAR" then
+				SetBinding(binding, command)
+			end
+			pcall(SaveBindings, set)
 		end
-		if binding ~= "CLEAR" then
-			SetBinding(binding, command)
-		end
-		SaveBindings(GetCurrentBindingSet())
 	end
 	RefreshHotkey(button, LB.Find(button.lbKind or "spell", button.lbSlot))
 	button:QuickKeybindButtonSetTooltip()
