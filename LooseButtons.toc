@@ -3,11 +3,12 @@
 ## Notes: All the buttons. Not a bar.
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## Author: Loose Buttons
-## Version: 0.1.9
+## Version: 0.1.10
 ## SavedVariables: LooseButtonsDB
 ## X-Flavor: Mainline
+## X-Curse-Project-ID: 1714504
 
-# 16001 is Forever beta 1.60.1. The client marks 120100 incompatible. The upload sends the Forever game-version row and does not let the packager upload.
+# 16001 is Forever 1.60.1. The client marks 120100 incompatible. The upload sends the Forever game-version row and does not let the packager upload.
 
 Logic.lua
 LooseButtons.lua

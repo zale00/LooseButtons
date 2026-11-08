@@ -630,6 +630,8 @@ local function EnsureRankButton(row)
 	return button
 end
 
+local catalogWidth
+
 local function LayoutCatalog(items, scheduleItems)
 	local page = LB.page
 	if not page then
@@ -643,10 +645,7 @@ local function LayoutCatalog(items, scheduleItems)
 	if not width or width < 40 then
 		width = 680
 	end
-	local columns = 3
-	if width > 1000 then
-		columns = 6
-	end
+	catalogWidth = width
 	local rowH = 60
 	local yGap = 10
 	local xPad = 15
@@ -656,6 +655,11 @@ local function LayoutCatalog(items, scheduleItems)
 	if inner < 40 then
 		inner = width
 		pad = 0
+	end
+	local minCol = 178
+	local columns = math.floor((inner + xPad) / (minCol + xPad))
+	if columns < 1 then
+		columns = 1
 	end
 	local colWidth = math.floor((inner - xPad * (columns - 1)) / columns)
 	if colWidth < 40 then
@@ -1771,6 +1775,48 @@ local function AnchorSubBar(book)
 		level = book:GetFrameLevel() or 0
 	end
 	strip:SetFrameLevel(level + 40)
+	local span = 0
+	if book.GetWidth then
+		local bookW = book:GetWidth()
+		if type(bookW) == "number" and bookW >= 40 then
+			span = bookW - 86 + ribbonRight
+		end
+	end
+	if span < 40 and strip.GetWidth then
+		span = strip:GetWidth() or 0
+	end
+	if span < 40 then
+		return
+	end
+	local buttons = #Logic.PAGE_COMMANDS
+	local fixed = 8 + buttons * 32 + (buttons - 1) * 6 + 8 + 12 + 8
+	local room = span - fixed
+	local dropW = DROP_W
+	local sliderW = SLIDER_W
+	local pair = dropW + sliderW
+	if room < pair then
+		if room < 192 then
+			room = 192
+		end
+		dropW = math.floor(room * DROP_W / pair)
+		if dropW < 96 then
+			dropW = 96
+		end
+		sliderW = room - dropW
+		if sliderW < 96 then
+			sliderW = 96
+			dropW = room - sliderW
+		end
+	end
+	if LB.themeDropdown then
+		LB.themeDropdown:SetSize(dropW, DROP_H)
+	end
+	if LB.layoutDropdown then
+		LB.layoutDropdown:SetSize(dropW, DROP_H)
+	end
+	if LB.scaleSlider then
+		LB.scaleSlider:SetSize(sliderW, SLIDER_H)
+	end
 end
 
 local function EnsurePage(book)
@@ -1781,6 +1827,20 @@ local function EnsurePage(book)
 	page:Hide()
 	EnsureSubBar(book)
 	AttachCatalogScroll(page)
+	page:SetScript("OnSizeChanged", function(self)
+		if not self:IsShown() then
+			return
+		end
+		local width = self.scroll and self.scroll:GetWidth()
+		if not width or width < 40 then
+			width = self:GetWidth()
+		end
+		if catalogWidth and type(width) == "number" and math.abs(width - catalogWidth) < 1 then
+			return
+		end
+		AnchorSubBar(book)
+		LayoutCatalog(nil, true)
+	end)
 	LB.page = page
 end
 

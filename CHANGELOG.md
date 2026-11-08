@@ -1,5 +1,10 @@
 # LooseButtons
 
+## 0.1.10
+
+- Spell names in the Loose Buttons spellbook stay readable when the book is small. The list uses more columns when you widen the book.
+- Theme, layout, and size stay on the ribbon in the small book.
+
 ## 0.1.9
 
 - Login no longer shows the `Binds.lua:497: Usage: SaveBindings(1|2)` error. Loose Buttons waits until the game reports binding set 1 or 2 before it saves your keys, then tries again on the next binding update.
