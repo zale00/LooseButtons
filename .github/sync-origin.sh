@@ -10,6 +10,7 @@ protected=(
   "CHANGELOG.md"
   ".github/"
   "AGENTS.md"
+  "CLAUDE.md"
   "tools/"
   ".gitignore"
 )

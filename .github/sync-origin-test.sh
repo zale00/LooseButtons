@@ -27,6 +27,7 @@ printf 'keep-bytes-7f3a\n' > "$dest/.github/keep.sh"
 printf 'pkgmeta-bytes-91c2\n' > "$dest/.pkgmeta"
 printf 'changelog-bytes-44de\n' > "$dest/CHANGELOG.md"
 printf 'agents-bytes-3c11\n' > "$dest/AGENTS.md"
+printf '@AGENTS.md\n' > "$dest/CLAUDE.md"
 printf 'luacheckrc-bytes-8e20\n' > "$dest/.luacheckrc"
 mkdir -p "$dest/tools"
 printf 'fetch-script-bytes-a91c\n' > "$dest/tools/fetch-forever-ui-source.sh"
@@ -38,13 +39,14 @@ cp "$dest/.github/keep.sh" "$saved/keep.sh"
 cp "$dest/.pkgmeta" "$saved/.pkgmeta"
 cp "$dest/CHANGELOG.md" "$saved/CHANGELOG.md"
 cp "$dest/AGENTS.md" "$saved/AGENTS.md"
+cp "$dest/CLAUDE.md" "$saved/CLAUDE.md"
 cp "$dest/.luacheckrc" "$saved/.luacheckrc"
 cp "$dest/tools/fetch-forever-ui-source.sh" "$saved/fetch-forever-ui-source.sh"
 cp "$dest/.gitignore" "$saved/.gitignore"
 git init -q -b main "$dest"
 git -C "$dest" config user.email "t@example.com"
 git -C "$dest" config user.name "t"
-git -C "$dest" add .github/keep.sh .pkgmeta CHANGELOG.md AGENTS.md .luacheckrc .gitignore tools/fetch-forever-ui-source.sh Logic.lua Old.lua LooseButtons.toc
+git -C "$dest" add .github/keep.sh .pkgmeta CHANGELOG.md AGENTS.md CLAUDE.md .luacheckrc .gitignore tools/fetch-forever-ui-source.sh Logic.lua Old.lua LooseButtons.toc
 git -C "$dest" commit -q -m "dest"
 
 set +e
@@ -60,6 +62,7 @@ cmp "$dest/.github/keep.sh" "$saved/keep.sh"
 cmp "$dest/.pkgmeta" "$saved/.pkgmeta"
 cmp "$dest/CHANGELOG.md" "$saved/CHANGELOG.md"
 cmp "$dest/AGENTS.md" "$saved/AGENTS.md"
+cmp "$dest/CLAUDE.md" "$saved/CLAUDE.md"
 cmp "$dest/.luacheckrc" "$origin/.luacheckrc"
 cmp "$dest/tools/fetch-forever-ui-source.sh" "$saved/fetch-forever-ui-source.sh"
 cmp "$dest/.gitignore" "$saved/.gitignore"
@@ -90,7 +93,7 @@ while IFS= read -r line; do
   if [[ $line == ".luacheckrc" ]]; then
     found_luacheckrc=1
   fi
-  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == "AGENTS.md" || $line == ".gitignore" || $line == "tools/fetch-forever-ui-source.sh" || $line == tools/* || $line == ".github" || $line == .github/* ]]; then
+  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == "AGENTS.md" || $line == "CLAUDE.md" || $line == ".gitignore" || $line == "tools/fetch-forever-ui-source.sh" || $line == tools/* || $line == ".github" || $line == .github/* ]]; then
     printf 'commit listed protected path %s\n%s\n' "$line" "$names" >&2
     exit 1
   fi

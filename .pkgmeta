@@ -5,6 +5,7 @@ ignore:
   - tools
   - devcheck
   - AGENTS.md
+  - CLAUDE.md
 
 manual-changelog:
   filename: CHANGELOG.md
