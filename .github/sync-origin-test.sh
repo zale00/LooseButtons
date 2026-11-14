@@ -16,6 +16,7 @@ open(sys.argv[1], "wb").write(b"A" * 100000)
 PY
 printf '## Version: 0.1.1\n' > "$origin/LooseButtons/LooseButtons.toc"
 printf '<Bindings></Bindings>\n' > "$origin/LooseButtons/Bindings.xml"
+printf 'origin-luacheckrc-bytes-63fc\n' > "$origin/.luacheckrc"
 git init -q -b main "$origin"
 git -C "$origin" config user.email "t@example.com"
 git -C "$origin" config user.name "t"
@@ -59,7 +60,7 @@ cmp "$dest/.github/keep.sh" "$saved/keep.sh"
 cmp "$dest/.pkgmeta" "$saved/.pkgmeta"
 cmp "$dest/CHANGELOG.md" "$saved/CHANGELOG.md"
 cmp "$dest/AGENTS.md" "$saved/AGENTS.md"
-cmp "$dest/.luacheckrc" "$saved/.luacheckrc"
+cmp "$dest/.luacheckrc" "$origin/.luacheckrc"
 cmp "$dest/tools/fetch-forever-ui-source.sh" "$saved/fetch-forever-ui-source.sh"
 cmp "$dest/.gitignore" "$saved/.gitignore"
 if [[ -e "$dest/Old.lua" ]]; then
@@ -80,18 +81,26 @@ fi
 
 names="$(git -C "$dest" show --name-only --format= HEAD)"
 found_logic=0
+found_luacheckrc=0
 while IFS= read -r line; do
   [[ -z $line ]] && continue
   if [[ $line == "Logic.lua" ]]; then
     found_logic=1
   fi
-  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == "AGENTS.md" || $line == ".luacheckrc" || $line == ".gitignore" || $line == "tools/fetch-forever-ui-source.sh" || $line == tools/* || $line == ".github" || $line == .github/* ]]; then
+  if [[ $line == ".luacheckrc" ]]; then
+    found_luacheckrc=1
+  fi
+  if [[ $line == "CHANGELOG.md" || $line == ".pkgmeta" || $line == "AGENTS.md" || $line == ".gitignore" || $line == "tools/fetch-forever-ui-source.sh" || $line == tools/* || $line == ".github" || $line == .github/* ]]; then
     printf 'commit listed protected path %s\n%s\n' "$line" "$names" >&2
     exit 1
   fi
 done <<< "$names"
 if [[ $found_logic -ne 1 ]]; then
   printf 'commit missing Logic.lua:\n%s\n' "$names" >&2
+  exit 1
+fi
+if [[ $found_luacheckrc -ne 1 ]]; then
+  printf 'commit missing .luacheckrc:\n%s\n' "$names" >&2
   exit 1
 fi
 
@@ -261,5 +270,55 @@ if [[ "$tools_out" != *"tools/fetch-forever-ui-source.sh"* ]]; then
 fi
 cmp "$tools_dest/tools/fetch-forever-ui-source.sh" "$tools_case/fetch.sh"
 cmp "$tools_dest/Logic.lua" "$tools_case/logic.lua"
+
+# Missing origin-root .luacheckrc: dest's copy is no longer protected, so it is removed.
+missing_rc="$(mktemp -d)"
+rc_origin="$missing_rc/origin"
+rc_dest="$missing_rc/dest"
+mkdir -p "$rc_origin/LooseButtons" "$rc_dest"
+printf 'NEW\n' > "$rc_origin/LooseButtons/Logic.lua"
+printf '## Version: 0.1.1\n' > "$rc_origin/LooseButtons/LooseButtons.toc"
+printf 'old-luacheckrc\n' > "$rc_dest/.luacheckrc"
+printf 'old\n' > "$rc_dest/Logic.lua"
+printf '## Version: 0.1.1\n' > "$rc_dest/LooseButtons.toc"
+git init -q -b main "$rc_dest"
+git -C "$rc_dest" config user.email "t@example.com"
+git -C "$rc_dest" config user.name "t"
+git -C "$rc_dest" add .luacheckrc Logic.lua LooseButtons.toc
+git -C "$rc_dest" commit -q -m "dest"
+bash "$script" --origin "$rc_origin" --dest "$rc_dest"
+cmp "$rc_dest/Logic.lua" "$rc_origin/LooseButtons/Logic.lua"
+if [[ -e "$rc_dest/.luacheckrc" ]]; then
+  echo "dest .luacheckrc still present when origin root had none" >&2
+  exit 1
+fi
+
+# Both LooseButtons/.luacheckrc and origin-root .luacheckrc is a conflict.
+both="$(mktemp -d)"
+both_origin="$both/origin"
+both_dest="$both/dest"
+mkdir -p "$both_origin/LooseButtons" "$both_dest"
+printf 'from-addon\n' > "$both_origin/LooseButtons/.luacheckrc"
+printf 'from-root\n' > "$both_origin/.luacheckrc"
+printf 'NEW\n' > "$both_origin/LooseButtons/Logic.lua"
+printf '## Version: 0.1.1\n' > "$both_origin/LooseButtons/LooseButtons.toc"
+printf 'old\n' > "$both_dest/Logic.lua"
+printf '## Version: 0.1.1\n' > "$both_dest/LooseButtons.toc"
+git init -q -b main "$both_dest"
+git -C "$both_dest" config user.email "t@example.com"
+git -C "$both_dest" config user.name "t"
+set +e
+both_out="$(bash "$script" --origin "$both_origin" --dest "$both_dest" 2>&1)"
+status=$?
+set -e
+if [[ $status -eq 0 ]]; then
+  printf 'dual luacheckrc exited 0\n%s\n' "$both_out" >&2
+  exit 1
+fi
+if [[ "$both_out" != *"both LooseButtons/.luacheckrc and origin-root .luacheckrc are present"* ]]; then
+  printf 'dual luacheckrc error: %q\n' "$both_out" >&2
+  exit 1
+fi
+cmp "$both_dest/Logic.lua" <(printf 'old\n')
 
 echo ok

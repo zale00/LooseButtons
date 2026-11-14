@@ -2,12 +2,14 @@
 set -euo pipefail
 
 # These paths are GitHub-only release files and a full tree replace deletes them.
+# .luacheckrc is not protected: Origin keeps it at the wow-addons root,
+# not under LooseButtons/, and this script copies $origin/.luacheckrc to
+# the GitHub repo root when that file is present.
 protected=(
   ".pkgmeta"
   "CHANGELOG.md"
   ".github/"
   "AGENTS.md"
-  ".luacheckrc"
   "tools/"
   ".gitignore"
 )
@@ -137,6 +139,18 @@ for rel in "${source_rels[@]}"; do
   fi
 done
 
+# Origin's lint config lives at the monorepo root. Stage it as $origin/.luacheckrc
+# (sibling of LooseButtons/) so it syncs to the GitHub root.
+root_luacheckrc=0
+if [[ -f $origin/.luacheckrc ]]; then
+  if [[ -v source_set[.luacheckrc] ]]; then
+    echo "both LooseButtons/.luacheckrc and origin-root .luacheckrc are present" >&2
+    exit 1
+  fi
+  source_set[".luacheckrc"]=1
+  root_luacheckrc=1
+fi
+
 origin_version=$(toc_version "$source_root/LooseButtons.toc")
 dest_version=$(toc_version "$dest/LooseButtons.toc")
 if version_older "$origin_version" "$dest_version"; then
@@ -152,6 +166,13 @@ for rel in "${source_rels[@]}"; do
   # A cut-off copy left a truncated Logic.lua.
   mv -f -- "$tmp" "$target"
 done
+
+if [[ $root_luacheckrc -eq 1 ]]; then
+  target="$dest/.luacheckrc"
+  tmp="$(mktemp "$(dirname -- "$target")/.sync.XXXXXX")"
+  cp -- "$origin/.luacheckrc" "$tmp"
+  mv -f -- "$tmp" "$target"
+fi
 
 tracked_deletes=()
 while IFS= read -r -d '' rel; do
@@ -175,6 +196,9 @@ if [[ $do_commit -eq 1 ]]; then
   for rel in "${source_rels[@]}"; do
     git -C "$dest" add -A -- "$rel"
   done
+  if [[ $root_luacheckrc -eq 1 ]]; then
+    git -C "$dest" add -A -- ".luacheckrc"
+  fi
   if [[ ${#tracked_deletes[@]} -gt 0 ]]; then
     for rel in "${tracked_deletes[@]}"; do
       git -C "$dest" add -A -- "$rel"
