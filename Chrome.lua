@@ -198,6 +198,9 @@ local function AnchorCooldown(button)
 	if not cooldown or not icon or not cooldown.ClearAllPoints then
 		return
 	end
+	if LB.SecureBlocked and LB.SecureBlocked(cooldown) then
+		return
+	end
 	local record = button.lbKind and LB.Find(button.lbKind, button.lbSlot)
 	local theme = record and LB.ThemeOf(record) or LB.CurrentTheme()
 	local pad = Logic.ThemeSpec(theme).cooldownInset
@@ -217,6 +220,9 @@ local function RaiseCooldown(button)
 	if cooldown.SetSwipeColor then
 		cooldown:SetSwipeColor(0, 0, 0, 0.64)
 	end
+	if LB.SecureBlocked and (LB.SecureBlocked(cooldown) or (button.hotkey and LB.SecureBlocked(button.hotkey))) then
+		return
+	end
 	if cooldown.SetFrameLevel and button.GetFrameLevel then
 		cooldown:SetFrameLevel(button:GetFrameLevel() + 1)
 	end
@@ -227,6 +233,9 @@ local function RaiseCooldown(button)
 end
 
 local function PlaceCount(button)
+	if LB.SecureBlocked and LB.SecureBlocked(button) then
+		return
+	end
 	if not button.lbCount then
 		local frame = CreateFrame("Frame", nil, button)
 		if frame.EnableMouse then
@@ -434,7 +443,7 @@ local function PaintItemCount(button, record)
 	local text = button.lbCountText
 	local icon = button.icon
 	local look
-	if record and record.kind == "item" then
+	if text and record and record.kind == "item" then
 		local count = ItemCount(record.payload)
 		local secret = Secret(count)
 		if secret then
@@ -449,8 +458,11 @@ local function PaintItemCount(button, record)
 				text:SetText("")
 			end
 		end
-	else
+	elseif text then
 		text:SetText("")
+	end
+	if not icon then
+		return
 	end
 	if record and PaintUsability(icon, record, look) then
 		return

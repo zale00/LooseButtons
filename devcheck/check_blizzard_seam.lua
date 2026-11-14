@@ -69,6 +69,21 @@ local function targetPaths()
 	return paths
 end
 
+-- Whole identifiers only: LB.PetActionBarSlot is not PetActionBar.
+local function hasToken(text, token)
+	return text:find("%f[%w_]" .. token .. "%f[^%w_]") ~= nil
+end
+
+local function tokenHits(text)
+	local hits = {}
+	for index = 1, #tokens do
+		if hasToken(text, tokens[index]) then
+			hits[#hits + 1] = tokens[index]
+		end
+	end
+	return hits
+end
+
 local function hitsIn(path)
 	if baseName(path) == seamFile then
 		return {}
@@ -77,13 +92,21 @@ local function hitsIn(path)
 	if not text then
 		return nil
 	end
-	local hits = {}
-	for index = 1, #tokens do
-		if text:find(tokens[index], 1, true) then
-			hits[#hits + 1] = tokens[index]
-		end
+	return tokenHits(text)
+end
+
+local selfTest = {
+	{ "LB.PetActionBarSlot = 1", 0 },
+	{ "PetActionBar:SetShownBase(true)", 2 },
+	{ "local x = PetActionBar", 1 },
+	{ "hooksecurefunc(a, b)", 1 },
+}
+for index = 1, #selfTest do
+	local got = #tokenHits(selfTest[index][1])
+	if got ~= selfTest[index][2] then
+		say("token match is wrong for " .. selfTest[index][1] .. ": " .. got)
+		os.exit(1)
 	end
-	return hits
 end
 
 local paths = targetPaths()

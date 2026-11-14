@@ -1,5 +1,9 @@
 # LooseButtons
 
+## 0.1.11
+
+- No change in play. The layout menu, share, import, and help windows moved to their own file.
+
 ## 0.1.10
 
 - Spell names in the Loose Buttons spellbook stay readable when the book is small. The list uses more columns when you widen the book.

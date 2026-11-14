@@ -3,7 +3,7 @@
 ## Notes: All the buttons. Not a bar.
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## Author: Loose Buttons
-## Version: 0.1.10
+## Version: 0.1.11
 ## SavedVariables: LooseButtonsDB
 ## X-Flavor: Mainline
 ## X-Curse-Project-ID: 1714504
@@ -15,5 +15,6 @@ LooseButtons.lua
 Chrome.lua
 Binds.lua
 Place.lua
+CatalogDialogs.lua
 Catalog.lua
 Blizzard.lua

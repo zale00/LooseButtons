@@ -207,6 +207,9 @@ function RefreshHotkey(button, record)
 		LB.PaintHotkeyRange(button.hotkeyText, button.lbOutOfRange)
 	end
 	if button.hotkey then
+		if LB.SecureBlocked and LB.SecureBlocked(button.hotkey) then
+			return
+		end
 		button.hotkey:EnableMouse(text ~= nil)
 	end
 end
@@ -679,6 +682,9 @@ local function EnsureQuickKeybind(button, name)
 		end
 	end
 	button.UpdateMouseWheelHandler = function(self)
+		if LB.SecureBlocked and LB.SecureBlocked(self) then
+			return
+		end
 		if self.EnableMouseWheel then
 			self:EnableMouseWheel(KeybindOpen() and true or false)
 		end

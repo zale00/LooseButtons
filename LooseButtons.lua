@@ -18,6 +18,29 @@ function LB.Say(text)
 	print("Loose Buttons: " .. text)
 end
 
+local function FrameProtected(frame)
+	if type(frame) ~= "table" or type(frame.IsProtected) ~= "function" then
+		return false
+	end
+	return frame:IsProtected() == true
+end
+
+function LB.SecureBlocked(frame)
+	if type(InCombatLockdown) ~= "function" or not InCombatLockdown() then
+		return false
+	end
+	if FrameProtected(frame) then
+		LB.pendingSecure = true
+		return true
+	end
+	local parent = type(frame) == "table" and type(frame.GetParent) == "function" and frame:GetParent()
+	if FrameProtected(parent) then
+		LB.pendingSecure = true
+		return true
+	end
+	return false
+end
+
 function LB.Account()
 	if type(LooseButtonsDB) ~= "table" then
 		LooseButtonsDB = {}
@@ -294,6 +317,32 @@ events:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
 			LB.pendingDragType = nil
 			if pendingType.button and pendingType.button.SetAttribute then
 				pendingType.button:SetAttribute(pendingType.savedAttr or "type", pendingType.savedType)
+			end
+		end
+		if event == "PLAYER_REGEN_ENABLED" and LB.pendingSecure and not InCombatLockdown() then
+			LB.pendingSecure = nil
+			if LB.UpdateCooldowns then
+				LB.UpdateCooldowns()
+			end
+			if LB.UpdateUsability then
+				LB.UpdateUsability()
+			end
+			if LB.RefreshHotkeys then
+				LB.RefreshHotkeys()
+			end
+			local pools = { LB.actions, LB.launchers }
+			local poolIndex
+			for poolIndex = 1, #pools do
+				local pool = pools[poolIndex]
+				if type(pool) == "table" then
+					local index
+					for index = 1, #pool do
+						local button = pool[index]
+						if button and button.UpdateMouseWheelHandler then
+							button:UpdateMouseWheelHandler()
+						end
+					end
+				end
 			end
 		end
 		return
