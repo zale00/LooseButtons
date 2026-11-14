@@ -1,5 +1,10 @@
 # LooseButtons
 
+## 0.1.12
+
+- Placed Character, Spellbook, Talents, Professions, and other menu buttons open their window when you click them. So does a placed backpack button. It opens LooseBags when that is on, and Blizzard's bags when it is off.
+- Clicks still work after you drag the button, after `/reload`, and in combat.
+
 ## 0.1.11
 
 - No change in play. The layout menu, share, import, and help windows moved to their own file.

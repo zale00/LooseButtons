@@ -878,6 +878,9 @@ local function EnsurePool()
 		button:SetSize(32, 40)
 		button:Hide()
 		button:RegisterForClicks(Logic.ClickRegistration("launcher"))
+		-- Launchers only get up clicks. Without this the default
+		-- ActionButtonUseKeyDown runs type1 on the down click only.
+		button:SetAttribute("useOnKeyDown", false)
 		button.lbKind = "launcher"
 		button.lbSlot = i
 		WireDrag(button)
