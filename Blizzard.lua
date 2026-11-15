@@ -41,6 +41,34 @@ function LB.PaintPortrait(icon)
 	SetPortraitTexture(icon, "player")
 end
 
+function LB.ShownBook()
+	local book = PlayerSpellsFrame and PlayerSpellsFrame.SpellBookFrame
+	if book and book.IsVisible and book:IsVisible() then
+		return book
+	end
+	return nil
+end
+
+function LB.SearchText()
+	local book = PlayerSpellsFrame and PlayerSpellsFrame.SpellBookFrame
+	local box = book and book.SearchBox
+	if type(box) ~= "table" or type(box.GetText) ~= "function" then
+		return nil
+	end
+	local text = box:GetText()
+	if type(issecretvalue) == "function" and issecretvalue(text) then
+		return nil
+	end
+	if type(text) ~= "string" then
+		return nil
+	end
+	text = string.match(text, "^%s*(.-)%s*$")
+	if text == "" then
+		return nil
+	end
+	return text
+end
+
 function LB.BookFrame()
 	if C_AddOns and C_AddOns.LoadAddOn then
 		C_AddOns.LoadAddOn("Blizzard_PlayerSpells")
@@ -54,6 +82,10 @@ local function HideForOtherTab(book, tabID)
 	end
 	if LB.tabID == nil or tabID == LB.tabID or not LB.CatalogUp() then
 		return
+	end
+	-- A spell-data refresh re-adds every tab and deselects this one with tabID nil.
+	if tabID ~= nil then
+		LB.catalogView = nil
 	end
 	LB.HideLooseChrome()
 end
@@ -131,6 +163,7 @@ local function WatchTabSelection(book)
 			return
 		end
 		LB.wantCatalog = false
+		LB.catalogView = nil
 		LB.HideCatalog(owner)
 	end
 	local function follow(_, tabID)
@@ -180,17 +213,77 @@ local function AddCatalogTab(book)
 		if tabButton.SetSquareMode then
 			tabButton:SetSquareMode(true)
 		end
-		if tabButton.Icon and tabButton.Icon.SetAtlas then
-			tabButton.Icon:SetAtlas("UI-HUD-MicroMenu-SpellbookAbilities-Up")
-			if tabButton.Icon.Show then
-				tabButton.Icon:Show()
-			end
-		end
 		if type(tabButton.IconMask) == "table" and tabButton.IconMask.Show then
 			tabButton.IconMask:Show()
 		end
 	end
 	HideUnavailableTabs(book)
+end
+
+local function Read(target, method)
+	if type(target) == "table" and type(target[method]) == "function" then
+		return target[method](target)
+	end
+	return nil
+end
+
+local function TabOwner(book, button, index)
+	if index == LB.tabID then
+		return "Loose Buttons"
+	end
+	local mixins = book.categoryMixins
+	if type(mixins) == "table" then
+		local n
+		for n = 1, #mixins do
+			if Read(mixins[n], "GetTabID") == index then
+				return "Blizzard category " .. n .. " available=" .. tostring(Read(mixins[n], "IsAvailable"))
+			end
+		end
+	end
+	local taint
+	if type(issecurevariable) == "function" then
+		local _, by = issecurevariable(button, "tabID")
+		taint = by
+	end
+	return "not a Blizzard category, by=" .. tostring(taint or "?")
+end
+
+function LB.PrintTabs()
+	local book = PlayerSpellsFrame and PlayerSpellsFrame.SpellBookFrame
+	local tabSystem = book and book.CategoryTabSystem
+	local tabs = tabSystem and tabSystem.tabs
+	if type(tabs) ~= "table" then
+		LB.Say("Open the spellbook once, then run /loose tabs.")
+		return
+	end
+	local listed = {}
+	local i
+	for i = 1, #tabs do
+		local button = tabs[i]
+		listed[button] = true
+		local icon = button.Icon
+		LB.Say("tab " .. i
+			.. " id=" .. tostring(button.tabID)
+			.. " shown=" .. tostring(Read(button, "IsShown"))
+			.. " selected=" .. tostring(button.isSelected)
+			.. " tip=" .. tostring(button.tooltipText)
+			.. " text=" .. tostring(button.tabText)
+			.. " icon=" .. tostring(button.tabIcon)
+			.. " tex=" .. tostring(Read(icon, "GetTexture"))
+			.. " atlas=" .. tostring(Read(icon, "GetAtlas"))
+			.. " w=" .. tostring(Read(button, "GetWidth"))
+			.. " owner=" .. TabOwner(book, button, i))
+	end
+	if type(tabSystem.GetChildren) ~= "function" then
+		return
+	end
+	local children = { tabSystem:GetChildren() }
+	for i = 1, #children do
+		local child = children[i]
+		if type(child) == "table" and not listed[child] and Read(child, "IsShown") then
+			LB.Say("orphan shown w=" .. tostring(Read(child, "GetWidth")) .. " tex=" .. tostring(Read(child.Icon, "GetTexture")))
+		end
+	end
 end
 
 local function HookBook()
@@ -214,11 +307,25 @@ local function HookBook()
 	end
 	if type(book.UpdateAllSpellData) == "function" then
 		hooksecurefunc(book, "UpdateAllSpellData", function(self)
+			HideUnavailableTabs(self)
 			if LB.wantCatalog and LB.tabID and self.GetTab and self:GetTab() == LB.tabID then
 				LB.ShowCatalog(self)
 			elseif LB.CatalogUp() and self.GetTab and LB.tabID and self:GetTab() ~= LB.tabID then
+				LB.catalogView = nil
 				LB.HideLooseChrome()
 			end
+		end)
+	end
+	local searchBox = book.SearchBox
+	if type(searchBox) == "table" and type(searchBox.HookScript) == "function" then
+		searchBox:HookScript("OnTextChanged", function()
+			if not LB.CatalogVisible() then
+				return
+			end
+			if LB.SearchText() then
+				LB.catalogView = nil
+			end
+			LB.LayoutCatalog(LB.catalogItems, false)
 		end)
 	end
 	WatchTabSelection(book)
@@ -242,6 +349,7 @@ local function HookBook()
 	end
 	if type(book.HookScript) == "function" then
 		book:HookScript("OnShow", function(self)
+			HideUnavailableTabs(self)
 			if openDecided then
 				return
 			end
@@ -260,6 +368,7 @@ local function HookBook()
 		book:HookScript("OnHide", function()
 			claim = nil
 			openDecided = false
+			LB.catalogView = nil
 		end)
 	end
 	book:CreateCategoryMixins()

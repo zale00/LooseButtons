@@ -1,5 +1,15 @@
 # LooseButtons
 
+## 0.1.13
+
+- The Loose Buttons tab looks like a spellbook page. Icons line up with Blizzard's column and wear the spellbook icon frame. A row lights up when you point at it. Menu buttons such as Talents and Guild show on their button plate.
+- Theme, Layout, and Scale moved off the dark ribbon into a Loose Buttons section at the top of the page. Each has a label and a tooltip. Clear, Edit, Lock, and Help sit under the list.
+- Help opens as a page in the book. `/loose help` with the spellbook closed still opens a window, which now has a title bar and a border.
+- Typing in the spellbook search box filters the Loose Buttons list while that tab is selected. It finds spells, items, macros, and menu buttons by name. Pressing Enter still runs Blizzard's spell search.
+- The tab shows a full icon like the tabs beside it. The Help button is an "i", so it no longer looks like the Game menu button.
+- The Scale and Theme controls under Character & info fit the small book.
+- `/loose tabs` prints every spellbook category tab and which addon set it up.
+
 ## 0.1.12
 
 - Placed Character, Spellbook, Talents, Professions, and other menu buttons open their window when you click them. So does a placed backpack button. It opens LooseBags when that is on, and Blizzard's bags when it is off.

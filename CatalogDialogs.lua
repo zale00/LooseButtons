@@ -1,7 +1,7 @@
 local Logic = LooseButtonsLogic
 local LB = Logic.LB
 
--- Layout menu, share and import dialogs, and the help frame for the catalog strip.
+-- Layout menu, share and import dialogs, the help window, and the help page.
 -- Catalog.lua loads after this file and sets LB.RefreshLayoutChrome.
 
 local function PresentLayout()
@@ -449,12 +449,13 @@ end
 
 local function LayoutHelp(frame, deferred)
 	local rows = Logic.HELP
+	local spec = Logic.HELP_PANEL
 	local content = frame.helpContent
 	local lines = frame.helpLines
 	local y = 0
 	local i
 	for i = 1, #rows do
-		local spec = rows[i]
+		local row = rows[i]
 		local line = lines[i]
 		if not line then
 			line = {
@@ -472,21 +473,18 @@ local function LayoutHelp(frame, deferred)
 			lines[i] = line
 		end
 		if line.gesture.SetWidth then
-			line.gesture:SetWidth(180)
+			line.gesture:SetWidth(spec.gestureW)
 		end
 		if line.detail.SetWidth then
-			line.detail:SetWidth(410)
+			line.detail:SetWidth(spec.detailW)
 		end
-		line.gesture:SetText(spec.gesture)
-		line.detail:SetText(spec.detail)
+		line.gesture:SetText(row.gesture)
+		line.detail:SetText(row.detail)
 		local gestureH = TextBlockHeight(line.gesture)
 		local detailH = TextBlockHeight(line.detail)
 		local textH = gestureH
 		if detailH > textH then
 			textH = detailH
-		end
-		if textH < 20 then
-			textH = 20
 		end
 		if line.gesture.SetHeight then
 			line.gesture:SetHeight(textH)
@@ -496,22 +494,22 @@ local function LayoutHelp(frame, deferred)
 		end
 		line.gesture:ClearAllPoints()
 		line.detail:ClearAllPoints()
-		line.gesture:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -y)
-		line.detail:SetPoint("TOPLEFT", content, "TOPLEFT", 210, -y)
-		y = y + textH + 4
+		line.gesture:SetPoint("TOPLEFT", content, "TOPLEFT", spec.gestureX, -y)
+		line.detail:SetPoint("TOPLEFT", content, "TOPLEFT", spec.detailX, -y)
+		y = y + textH + spec.rowGap
 	end
 	if y < 1 then
 		y = 1
 	end
 	content:SetHeight(y)
-	local full = 36 + y + 12
+	local full = spec.top + y + 12
 	local limit = HelpViewLimit()
 	local height = full
 	if limit and full > limit then
 		height = limit
 	end
-	frame:SetSize(640, height)
-	local visible = height - 48
+	frame:SetSize(spec.width, height)
+	local visible = height - spec.top - 12
 	if visible < 1 then
 		visible = 1
 	end
@@ -529,7 +527,7 @@ local function LayoutHelp(frame, deferred)
 	end
 	frame.helpOffset = offset
 	local scroll = frame.helpScroll
-	scroll:SetSize(624, visible)
+	scroll:SetSize(spec.width - 16, visible)
 	if scroll.SetVerticalScroll then
 		scroll:SetVerticalScroll(offset)
 	end
@@ -549,22 +547,18 @@ local function EnsureHelpFrame()
 	if LB.helpFrame then
 		return LB.helpFrame
 	end
-	local frame = CreateFrame("Frame", "LooseButtonsHelp", UIParent)
-	frame:SetSize(640, 48)
+	local spec = Logic.HELP_PANEL
+	local frame = CreateFrame("Frame", "LooseButtonsHelp", UIParent, "DefaultPanelFlatTemplate")
+	frame:SetTitle("Loose Buttons Help")
+	frame:SetSize(spec.width, spec.top + 12)
 	frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 	frame:SetFrameStrata("DIALOG")
 	frame:EnableMouse(true)
-	local bg = frame:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints(frame)
-	bg:SetColorTexture(0.06, 0.05, 0.04, 0.94)
-	local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	title:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -14)
-	title:SetText("Help")
 	local scroll = CreateFrame("ScrollFrame", nil, frame)
-	scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -36)
+	scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -spec.top)
 	scroll:EnableMouse(true)
 	local content = CreateFrame("Frame", nil, scroll)
-	content:SetSize(624, 1)
+	content:SetSize(spec.width - 16, 1)
 	if scroll.SetScrollChild then
 		scroll:SetScrollChild(content)
 	end
@@ -587,6 +581,8 @@ local function EnsureHelpFrame()
 		LayoutHelp(frame, true)
 	end)
 	frame:SetScript("OnShow", function(self)
+		self:ClearAllPoints()
+		self:SetPoint("CENTER", LB.ShownBook() or UIParent, "CENTER", 0, 0)
 		LayoutHelp(self, false)
 	end)
 	AttachDialogChrome(frame)
@@ -596,13 +592,110 @@ local function EnsureHelpFrame()
 	return frame
 end
 
+function LB.ApplySpellbookColor(fontString)
+	local color = SPELLBOOK_FONT_COLOR
+	if not fontString or not fontString.SetTextColor or type(color) ~= "table" then
+		return
+	end
+	local r, g, b = color.r, color.g, color.b
+	if not r and color.GetRGB then
+		r, g, b = color:GetRGB()
+	end
+	if r and g and b then
+		fontString:SetTextColor(r, g, b)
+	end
+end
+
+function LB.LayoutHelpPage(content, x, width, y)
+	local rows = Logic.HELP
+	local spec = Logic.HELP_PAGE
+	local lines = LB.helpPageLines
+	if not lines then
+		lines = {}
+		LB.helpPageLines = lines
+	end
+	local detailW = width - spec.detailX
+	if detailW > spec.detailMax then
+		detailW = spec.detailMax
+	end
+	if detailW < 40 then
+		detailW = 40
+	end
+	local i
+	for i = 1, #rows do
+		local row = rows[i]
+		local line = lines[i]
+		if not line then
+			line = {
+				gesture = content:CreateFontString(nil, "OVERLAY", "SystemFont_Large"),
+				detail = content:CreateFontString(nil, "OVERLAY", "SystemFont_Med1"),
+			}
+			line.gesture:SetJustifyH("LEFT")
+			line.detail:SetJustifyH("LEFT")
+			if line.gesture.SetJustifyV then
+				line.gesture:SetJustifyV("TOP")
+			end
+			if line.detail.SetJustifyV then
+				line.detail:SetJustifyV("TOP")
+			end
+			lines[i] = line
+		end
+		line.gesture:SetWidth(spec.gestureW)
+		line.detail:SetWidth(detailW)
+		line.gesture:SetText(row.gesture)
+		line.detail:SetText(row.detail)
+		LB.ApplySpellbookColor(line.gesture)
+		LB.ApplySpellbookColor(line.detail)
+		local textH = TextBlockHeight(line.gesture)
+		local detailH = TextBlockHeight(line.detail)
+		if detailH > textH then
+			textH = detailH
+		end
+		line.gesture:ClearAllPoints()
+		line.detail:ClearAllPoints()
+		line.gesture:SetPoint("TOPLEFT", content, "TOPLEFT", x, -y)
+		line.detail:SetPoint("TOPLEFT", content, "TOPLEFT", x + spec.detailX, -y)
+		line.gesture:Show()
+		line.detail:Show()
+		y = y + textH + spec.rowGap
+	end
+	return y
+end
+
+function LB.HideHelpPage()
+	local lines = LB.helpPageLines
+	if not lines then
+		return
+	end
+	local i
+	for i = 1, #lines do
+		lines[i].gesture:Hide()
+		lines[i].detail:Hide()
+	end
+end
+
+-- Catalog.lua and Blizzard.lua load after this file, so their LB functions are read at call time.
 local function OpenHelp()
+	if LB.CatalogVisible() then
+		HideNamed("LooseButtonsHelp")
+		LB.SetCatalogView("help")
+		return
+	end
 	HideNamed("LooseButtonsShare")
 	HideNamed("LooseButtonsImport")
 	EnsureHelpFrame():Show()
 end
 
 local function ToggleHelp()
+	if LB.CatalogVisible() then
+		HideNamed("LooseButtonsHelp")
+		if LB.catalogView == "help" then
+			LB.SetCatalogView(nil)
+		else
+			LB.SetCatalogView("help")
+		end
+		return
+	end
 	local frame = EnsureHelpFrame()
 	if frame:IsShown() then
 		frame:Hide()

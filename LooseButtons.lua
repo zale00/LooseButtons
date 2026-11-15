@@ -491,6 +491,10 @@ SlashCmdList["LOOSEBUTTONS"] = function(msg)
 		end
 		return
 	end
+	if msg == "tabs" then
+		LB.PrintTabs()
+		return
+	end
 	if msg == "tab" then
 		local live = LB.DB()
 		live.spellbookTab = not Logic.SpellbookTabEnabled(live)

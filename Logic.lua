@@ -37,6 +37,51 @@ Logic.SECTION_STACK = {
 	plain = 51,
 }
 
+Logic.SETTINGS_TITLE = "Loose Buttons"
+
+Logic.SETTINGS_STACK = {
+	labelGap = 6,
+	pairGap = 14,
+	dropW = 130,
+	dropH = 22,
+	titleGap = 6,
+	lineGap = 4,
+	sliderW = 176,
+	sliderH = 40,
+}
+
+Logic.SETTINGS_TIPS = {
+	theme = { title = "Button theme", text = "How placed buttons are drawn." },
+	layout = { title = "Layout", text = "Switch, save, share, or delete a saved set of buttons." },
+	scale = { title = "Button scale", text = "Size of every placed button." },
+}
+
+-- Corners are offsets from the spellbook frame. The content x values put the
+-- divider at 53, the title at 77, and the icon column at 85, as Blizzard's pages do.
+Logic.CATALOG_PAGE = {
+	left = 45,
+	top = -83,
+	right = -80,
+	bottom = 76,
+	headerLeft = 8,
+	rowLeft = 40,
+	titleLeft = 24,
+	firstY = 12,
+	stripBottom = 40,
+	backplateW = 416,
+	backplateH = 106,
+	backplateX = -77,
+	backplateY = -4,
+}
+
+Logic.CATALOG_BAR = { template = "MinimalScrollBar", x = 12 }
+
+Logic.PAGE_BUTTON = 28
+Logic.LOCK_CROP = 0.2
+
+Logic.HELP_PANEL = { width = 540, gestureX = 16, gestureW = 150, detailX = 170, detailW = 340, top = 28, rowGap = 10 }
+Logic.HELP_PAGE = { gestureW = 130, detailX = 138, detailMax = 520, rowGap = 10 }
+
 Logic.MACRO_SECTIONS = {
 	{ scope = "general", title = "General Macros" },
 	{ scope = "character", title = "Character Macros" },
@@ -1185,8 +1230,6 @@ function Logic.LauncherByCommand(command)
 	return nil
 end
 
-local gameMenu = Logic.LauncherByCommand("TOGGLEGAMEMENU")
-
 Logic.PAGE_COMMANDS = {
 	{ id = "clear", title = "Clear all", text = "Remove every loose button.", icon = "Interface\\Buttons\\UI-GroupLoot-Pass-Up" },
 	{ id = "edit", title = "Edit", text = "Bind keys to loose buttons.", icon = "Interface\\Icons\\INV_Misc_Key_06" },
@@ -1195,7 +1238,7 @@ Logic.PAGE_COMMANDS = {
 		id = "help",
 		title = "Help",
 		text = "How to place, move, and remove buttons.",
-		atlas = gameMenu and gameMenu.atlas or nil,
+		info = true,
 	},
 }
 
@@ -1325,19 +1368,57 @@ function Logic.SectionRow(scaleLabelW, themeLabelW)
 	local stack = Logic.SECTION_STACK
 	local scaleColumnW = stack.check + stack.labelGap + scaleLabelW + stack.controlGap + stack.sliderW
 	local themeColumnW = stack.check + stack.labelGap + themeLabelW + stack.controlGap + stack.dropW
-	local themeColumnX = scaleColumnW + stack.controlGap
+	local width = scaleColumnW
+	if themeColumnW > width then
+		width = themeColumnW
+	end
 	return {
-		height = stack.band + stack.titleLine + stack.sliderH + stack.band + stack.divider,
+		height = stack.band + stack.titleLine + stack.sliderH + stack.stackGap + stack.check + stack.band + stack.divider,
+		width = width,
 		scaleColumnW = scaleColumnW,
-		themeColumnX = themeColumnX,
+		themeColumnX = 0,
 		themeColumnW = themeColumnW,
 		anchors = {
 			scaleCheck = { point = "TOPLEFT", rel = "title", relPoint = "BOTTOMLEFT", x = 0, y = -stack.sliderCap },
 			scaleLabel = { point = "LEFT", rel = "scaleCheck", relPoint = "RIGHT", x = stack.labelGap, y = 0 },
 			slider = { point = "LEFT", rel = "scaleLabel", relPoint = "RIGHT", x = stack.controlGap, y = stack.sliderNudge },
-			themeCheck = { point = "TOPLEFT", rel = "title", relPoint = "BOTTOMLEFT", x = themeColumnX, y = -stack.sliderCap },
+			themeCheck = { point = "TOPLEFT", rel = "title", relPoint = "BOTTOMLEFT", x = 0, y = -(stack.sliderH + stack.stackGap) },
 			themeLabel = { point = "LEFT", rel = "themeCheck", relPoint = "RIGHT", x = stack.labelGap, y = 0 },
 			dropdown = { point = "LEFT", rel = "themeLabel", relPoint = "RIGHT", x = stack.controlGap, y = 0 },
+		},
+	}
+end
+
+function Logic.SettingsRow(themeLabelW, layoutLabelW, scaleLabelW)
+	if type(themeLabelW) ~= "number" or themeLabelW < 0 then
+		themeLabelW = 0
+	end
+	if type(layoutLabelW) ~= "number" or layoutLabelW < 0 then
+		layoutLabelW = 0
+	end
+	if type(scaleLabelW) ~= "number" or scaleLabelW < 0 then
+		scaleLabelW = 0
+	end
+	local stack = Logic.SETTINGS_STACK
+	local section = Logic.SECTION_STACK
+	local dropLine = themeLabelW + stack.labelGap + stack.dropW + stack.pairGap + layoutLabelW + stack.labelGap + stack.dropW
+	local sliderLine = scaleLabelW + stack.labelGap + stack.sliderW
+	local width = dropLine
+	if sliderLine > width then
+		width = sliderLine
+	end
+	local dropY = -(stack.titleGap + stack.dropH / 2)
+	local sliderY = -(stack.titleGap + stack.dropH + stack.lineGap + stack.sliderH / 2)
+	return {
+		height = section.band + section.titleLine + stack.titleGap + stack.dropH + stack.lineGap + stack.sliderH + section.band + section.divider,
+		width = width,
+		anchors = {
+			themeLabel = { point = "LEFT", rel = "title", relPoint = "BOTTOMLEFT", x = 0, y = dropY },
+			theme = { point = "LEFT", rel = "themeLabel", relPoint = "RIGHT", x = stack.labelGap, y = 0 },
+			layoutLabel = { point = "LEFT", rel = "theme", relPoint = "RIGHT", x = stack.pairGap, y = 0 },
+			layout = { point = "LEFT", rel = "layoutLabel", relPoint = "RIGHT", x = stack.labelGap, y = 0 },
+			scaleLabel = { point = "LEFT", rel = "title", relPoint = "BOTTOMLEFT", x = 0, y = sliderY },
+			slider = { point = "LEFT", rel = "scaleLabel", relPoint = "RIGHT", x = stack.labelGap, y = 0 },
 		},
 	}
 end
@@ -1847,6 +1928,30 @@ function Logic.BuildSections(skillLines, spellAt, launchers, items, macros, pets
 		end
 	end
 	return sections
+end
+
+function Logic.FilterSections(sections, needle)
+	if type(needle) ~= "string" or needle == "" then
+		return sections
+	end
+	local wanted = string.lower(needle)
+	local kept = {}
+	local s
+	for s = 1, #sections do
+		local section = sections[s]
+		local entries = {}
+		local e
+		for e = 1, #section.entries do
+			local entry = section.entries[e]
+			if type(entry.name) == "string" and string.find(string.lower(entry.name), wanted, 1, true) then
+				table.insert(entries, entry)
+			end
+		end
+		if #entries > 0 then
+			table.insert(kept, { title = section.title, entries = entries })
+		end
+	end
+	return kept
 end
 
 function Logic.RankRow(spell)

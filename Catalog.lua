@@ -1,6 +1,6 @@
 local Logic = LooseButtonsLogic
 local LB = Logic.LB
-local LayoutMenu, ToggleHelp = LB.LayoutMenu, LB.ToggleHelp
+local LayoutMenu, ToggleHelp, ApplySpellbookColor = LB.LayoutMenu, LB.ToggleHelp, LB.ApplySpellbookColor
 
 local receive = CreateFrame("Frame", "LooseButtonsReceive", UIParent)
 receive:SetAllPoints(UIParent)
@@ -283,27 +283,61 @@ local function BindingExists(command)
 	return type(index) == "number" and index > 0
 end
 
-local function ApplySpellbookColor(fontString)
-	local color = SPELLBOOK_FONT_COLOR
-	if not fontString or not fontString.SetTextColor or type(color) ~= "table" then
-		return
+local function FrameCatalogIcon(row, framed)
+	local icon = row.icon
+	icon:ClearAllPoints()
+	if framed then
+		icon:SetSize(36, 36)
+		icon:SetPoint("CENTER", row, "LEFT", 20, 0)
+		if not row.iconMasked then
+			icon:AddMaskTexture(row.iconMask)
+			row.iconMasked = true
+		end
+	else
+		icon:SetSize(40, 40)
+		icon:SetPoint("LEFT", row, "LEFT", 0, 0)
+		if row.iconMasked then
+			icon:RemoveMaskTexture(row.iconMask)
+			row.iconMasked = nil
+		end
 	end
-	local r, g, b = color.r, color.g, color.b
-	if not r and color.GetRGB then
-		r, g, b = color:GetRGB()
-	end
-	if r and g and b then
-		fontString:SetTextColor(r, g, b)
-	end
+	row.iconBorder:SetShown(framed)
+	row.iconShadow:SetShown(framed)
 end
 
-local function PaintCatalogIcon(icon, entry)
-	if entry.portrait and type(SetPortraitTexture) == "function" then
-		SetPortraitTexture(icon, "player")
+-- plate is the row's plate texture. The rank button repaints a spell icon and passes none.
+local function PaintCatalogIcon(icon, entry, plate)
+	local paint
+	if entry.chrome == "micro" then
+		paint = Logic.LauncherPaint({ kind = "launcher", payload = entry.payload })
+	end
+	if plate then
+		if paint and paint.plate then
+			plate:SetAtlas(paint.plate, true)
+			plate:Show()
+		else
+			plate:Hide()
+		end
+	end
+	if paint and paint.normal and icon.SetAtlas then
+		icon:SetAtlas(paint.normal, true)
+		if plate then
+			icon:ClearAllPoints()
+			icon:SetPoint("CENTER", plate, "CENTER", 0, 0)
+		end
 		return
 	end
-	if entry.atlas and icon.SetAtlas then
-		icon:SetAtlas("UI-HUD-MicroMenu-" .. entry.atlas .. "-Up")
+	-- A pooled row keeps the last atlas's texture coordinates until they are reset.
+	if icon.SetTexCoord then
+		icon:SetTexCoord(0, 1, 0, 1)
+	end
+	if entry.portrait and type(SetPortraitTexture) == "function" then
+		if plate and paint then
+			icon:ClearAllPoints()
+			icon:SetPoint("TOPLEFT", plate, "TOPLEFT", 7, -7)
+			icon:SetPoint("BOTTOMRIGHT", plate, "BOTTOMRIGHT", -7, 7)
+		end
+		SetPortraitTexture(icon, "player")
 		return
 	end
 	if entry.chrome == "bag" then
@@ -415,11 +449,24 @@ local function EnsureCheckLabel(header, key, text)
 	if label then
 		return label
 	end
-	label = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	label = header:CreateFontString(nil, "OVERLAY", "SystemFont_Med1")
 	label:SetText(text)
 	ApplySpellbookColor(label)
 	header[key] = label
 	return label
+end
+
+local function PlaceByAnchors(anchors, frames, order)
+	local i
+	for i = 1, #order do
+		local anchor = anchors[order[i]]
+		local frame = frames[order[i]]
+		local relFrame = anchor and frames[anchor.rel]
+		if frame and relFrame then
+			frame:ClearAllPoints()
+			frame:SetPoint(anchor.point, relFrame, anchor.relPoint, anchor.x, anchor.y)
+		end
+	end
 end
 
 local function ShowSectionScale(header)
@@ -511,17 +558,7 @@ local function ShowSectionScale(header)
 		themeLabel = header.themeCheckLabel,
 		dropdown = header.sectionTheme,
 	}
-	local order = { "scaleCheck", "scaleLabel", "slider", "themeCheck", "themeLabel", "dropdown" }
-	local i
-	for i = 1, #order do
-		local anchor = row.anchors[order[i]]
-		local frame = frames[order[i]]
-		local relFrame = anchor and frames[anchor.rel]
-		if frame and relFrame then
-			frame:ClearAllPoints()
-			frame:SetPoint(anchor.point, relFrame, anchor.relPoint, anchor.x, anchor.y)
-		end
-	end
+	PlaceByAnchors(row.anchors, frames, { "scaleCheck", "scaleLabel", "slider", "themeCheck", "themeLabel", "dropdown" })
 	header.check:Show()
 	if header.check.SetChecked then
 		header.check:SetChecked(LB.DB().launcherScaleSeparate)
@@ -590,7 +627,7 @@ local function EnsureRankButton(row)
 	local button = CreateFrame("Button", nil, row)
 	button:SetSize(160, 16)
 	button:RegisterForDrag("LeftButton")
-	local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	local label = button:CreateFontString(nil, "OVERLAY", "SystemFont_Med1")
 	label:SetAllPoints(button)
 	label:SetJustifyH("LEFT")
 	button.label = label
@@ -633,6 +670,228 @@ end
 
 local catalogWidth
 
+local function NewHeader(content)
+	local spec = Logic.CATALOG_PAGE
+	local header = CreateFrame("Frame", nil, content)
+	header.text = header:CreateFontString(nil, "OVERLAY", "SystemFont_Huge2")
+	header.text:SetJustifyH("LEFT")
+	header.backplate = header:CreateTexture(nil, "BACKGROUND")
+	header.backplate:SetAtlas("spellbook-list-backplate", true)
+	header.backplate:SetAlpha(0.65)
+	header.backplate:SetSize(spec.backplateW, spec.backplateH)
+	header.backplate:SetPoint("LEFT", header.text, "LEFT", spec.backplateX, spec.backplateY)
+	header.divider = header:CreateTexture(nil, "ARTWORK")
+	header.divider:SetAtlas("spellbook-divider", true)
+	header.divider:SetHeight(Logic.SECTION_STACK.divider)
+	header.divider:SetPoint("BOTTOMLEFT", header, "BOTTOMLEFT", 0, 0)
+	header.divider:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
+	return header
+end
+
+local function AttachTip(frame, tip)
+	frame:HookScript("OnEnter", function(self)
+		if type(GameTooltip) ~= "table" or type(GameTooltip.SetOwner) ~= "function" or type(GameTooltip_SetTitle) ~= "function" then
+			return
+		end
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip_SetTitle(GameTooltip, tip.title)
+		if type(GameTooltip_AddNormalLine) == "function" then
+			GameTooltip_AddNormalLine(GameTooltip, tip.text, true)
+		end
+		GameTooltip:Show()
+	end)
+	frame:HookScript("OnLeave", function()
+		if type(GameTooltip) == "table" and type(GameTooltip.Hide) == "function" then
+			GameTooltip:Hide()
+		end
+	end)
+end
+
+local function LayoutLabel()
+	return Logic.Layouts.ActiveName(LB.Account(), LB.CharKey()) or Logic.BLANK_LAYOUT
+end
+
+local function EnsureSettings(header)
+	local stack = Logic.SETTINGS_STACK
+	local tips = Logic.SETTINGS_TIPS
+	EnsureCheckLabel(header, "themeLabel", "Theme")
+	EnsureCheckLabel(header, "layoutLabel", "Layout")
+	EnsureCheckLabel(header, "scaleLabel", "Scale")
+	local dropdown = CreateFrame("DropdownButton", "LooseButtonsTheme", header, "WowStyle1DropdownTemplate")
+	dropdown:SetSize(stack.dropW, stack.dropH)
+	local theme = Logic.THEMES[LB.CurrentTheme()]
+	if dropdown.SetDefaultText then
+		dropdown:SetDefaultText(theme.title)
+	end
+	if MenuUtil and MenuUtil.CreateRadioMenu then
+		local rows = {}
+		local i
+		for i = 1, #Logic.THEME_ORDER do
+			local id = Logic.THEME_ORDER[i]
+			rows[i] = { Logic.THEMES[id].title, id }
+		end
+		MenuUtil.CreateRadioMenu(dropdown, function(id)
+			return LB.CurrentTheme() == id
+		end, function(id)
+			LB.ApplyTheme(id)
+		end, unpack(rows))
+	end
+	AttachTip(dropdown, tips.theme)
+	LB.themeDropdown = dropdown
+	local layout = CreateFrame("DropdownButton", "LooseButtonsLayout", header, "WowStyle1DropdownTemplate")
+	layout:SetSize(stack.dropW, stack.dropH)
+	if layout.SetDefaultText then
+		layout:SetDefaultText(LayoutLabel())
+	end
+	if layout.SetupMenu then
+		layout:SetupMenu(LayoutMenu)
+	end
+	AttachTip(layout, tips.layout)
+	LB.layoutDropdown = layout
+	local slider = CreateFrame("Frame", "LooseButtonsScale", header, "MinimalSliderWithSteppersTemplate")
+	slider:SetSize(stack.sliderW, stack.sliderH)
+	local label = MinimalSliderWithSteppersMixin and MinimalSliderWithSteppersMixin.Label
+	if slider.Init and label then
+		local formatters = {}
+		formatters[label.Top] = function(value)
+			if type(value) ~= "number" then
+				return ""
+			end
+			return math.floor(value + 0.5) .. "%"
+		end
+		slider:Init(Logic.ScalePercent(LB.CurrentScale()), Logic.SCALE_MIN_PERCENT, Logic.SCALE_MAX_PERCENT, Logic.SCALE_STEPS, formatters)
+	end
+	local function OnScaleChanged(_, value)
+		if LB.scaleWriting then
+			return
+		end
+		local percent = Logic.ScaleFromSlider(slider, value)
+		if type(percent) ~= "number" then
+			return
+		end
+		LB.ApplyScale(percent / 100)
+	end
+	local inner = slider.Slider
+	if type(inner) == "table" and type(inner.HookScript) == "function" then
+		inner:HookScript("OnValueChanged", OnScaleChanged)
+	elseif type(slider.HookScript) == "function" then
+		slider:HookScript("OnValueChanged", OnScaleChanged)
+	end
+	AttachTip(slider, tips.scale)
+	if type(inner) == "table" then
+		AttachTip(inner, tips.scale)
+	end
+	LB.scaleSlider = slider
+end
+
+local function PlaceHeader(header, content, spec, y, height, title)
+	header:ClearAllPoints()
+	header:SetSize(spec.headerInner, height)
+	header:SetPoint("TOPLEFT", content, "TOPLEFT", spec.headerLeft, -y)
+	header.text:ClearAllPoints()
+	local hasControls = height > Logic.SECTION_STACK.plain
+	local textY = -4
+	if hasControls then
+		textY = Logic.SectionHeaderInset()
+	end
+	header.text:SetPoint("TOPLEFT", header, "TOPLEFT", spec.titleLeft, textY)
+	header.text:SetText(title)
+	ApplySpellbookColor(header.text)
+	if not hasControls then
+		header.text:SetPoint("TOPRIGHT", header, "TOPRIGHT", -spec.rightPad, textY)
+	end
+	header:Show()
+end
+
+local function LayoutSettings(header, content, spec, y)
+	local row = Logic.SettingsRow(header.themeLabel:GetStringWidth(), header.layoutLabel:GetStringWidth(), header.scaleLabel:GetStringWidth())
+	PlaceHeader(header, content, spec, y, row.height, Logic.SETTINGS_TITLE)
+	PlaceByAnchors(row.anchors, {
+		title = header.text,
+		themeLabel = header.themeLabel,
+		theme = LB.themeDropdown,
+		layoutLabel = header.layoutLabel,
+		layout = LB.layoutDropdown,
+		scaleLabel = header.scaleLabel,
+		slider = LB.scaleSlider,
+	}, { "themeLabel", "theme", "layoutLabel", "layout", "scaleLabel", "slider" })
+	return row.height
+end
+
+local ROW_REST_ALPHA = 0.25
+
+local function NewCatalogRow(content)
+	local row = CreateFrame("Button", nil, content)
+	row.lbCatalog = true
+	row.backplate = row:CreateTexture(nil, "BACKGROUND")
+	row.backplate:SetAtlas("spellbook-item-backplate", true)
+	row.backplate:SetAlpha(ROW_REST_ALPHA)
+	row.backplate:SetPoint("CENTER", row, "CENTER", 5, -5)
+	row.plate = row:CreateTexture(nil, "BACKGROUND", nil, 1)
+	row.plate:SetPoint("CENTER", row, "LEFT", 20, 0)
+	row.plate:Hide()
+	row.icon = row:CreateTexture(nil, "ARTWORK", nil, 1)
+	row.iconShadow = row:CreateTexture(nil, "ARTWORK", nil, 0)
+	row.iconShadow:SetAtlas("spellbook-item-iconframe-shadow")
+	row.iconShadow:SetPoint("TOPLEFT", row.icon, "TOPLEFT", -14, 5)
+	row.iconShadow:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 4, -10)
+	row.iconBorder = row:CreateTexture(nil, "OVERLAY")
+	row.iconBorder:SetAtlas("spellbook-item-iconframe")
+	row.iconBorder:SetPoint("TOPLEFT", row.icon, "TOPLEFT", -13, 3)
+	row.iconBorder:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 3, -9)
+	row.iconMask = row:CreateMaskTexture()
+	row.iconMask:SetAtlas("spellbook-item-spellicon-mask", false)
+	row.iconMask:SetAllPoints(row.icon)
+	row.hover = row:CreateTexture(nil, "OVERLAY", nil, 2)
+	row.hover:SetAtlas("spellbook-item-iconframe-hover", false)
+	row.hover:SetBlendMode("ADD")
+	row.hover:SetAlpha(0.35)
+	row.hover:SetPoint("TOPLEFT", row.icon, "TOPLEFT", -2, 2)
+	row.hover:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", 2, -2)
+	row.hover:Hide()
+	row.nameText = row:CreateFontString(nil, "OVERLAY", "SystemFont_Large")
+	row.nameText:SetJustifyH("LEFT")
+	row:RegisterForDrag("LeftButton")
+	row:SetScript("OnDragStart", function(self)
+		local dragged = self.entry
+		if not dragged then
+			return
+		end
+		if dragged.kind == "item" or dragged.kind == "macro" then
+			LB.dragSpell = { kind = dragged.kind, payload = dragged.payload, icon = dragged.icon }
+			ShowSpellGhost(dragged.icon)
+			ShowReceive(true)
+			return
+		end
+		if dragged.kind == "spell" or dragged.kind == "pet" then
+			if InCombatLockdown() then
+				LB.Say("Cannot pick up a spell in combat.")
+				return
+			end
+			LB.dragSpell = { kind = dragged.kind, payload = dragged.payload, icon = dragged.icon, petCast = dragged.petCast, bookSlot = dragged.bookSlot, keepRank = dragged.keepRank }
+			ShowSpellGhost(dragged.icon)
+			ShowReceive(true)
+			return
+		end
+		BeginLauncherDrag(dragged)
+	end)
+	row:SetScript("OnEnter", function(self)
+		self.backplate:SetAlpha(1)
+		if self.entry and self.entry.kind ~= "launcher" then
+			self.hover:Show()
+		end
+		LB.ShowTip(self, self.entry)
+	end)
+	row:SetScript("OnLeave", function(self)
+		self.backplate:SetAlpha(ROW_REST_ALPHA)
+		self.hover:Hide()
+		if type(GameTooltip) == "table" and type(GameTooltip.Hide) == "function" then
+			GameTooltip:Hide()
+		end
+	end)
+	return row
+end
+
 local function LayoutCatalog(items, scheduleItems)
 	local page = LB.page
 	if not page then
@@ -650,27 +909,68 @@ local function LayoutCatalog(items, scheduleItems)
 	local rowH = 60
 	local yGap = 10
 	local xPad = 15
-	local headerH = Logic.SECTION_STACK.plain
-	local pad = Logic.CatalogTextLeft()
-	local inner = width - pad * 2
-	if inner < 40 then
-		inner = width
-		pad = 0
+	local plainH = Logic.SECTION_STACK.plain
+	local spec = {
+		headerLeft = Logic.CATALOG_PAGE.headerLeft,
+		rowLeft = Logic.CATALOG_PAGE.rowLeft,
+		titleLeft = Logic.CATALOG_PAGE.titleLeft,
+		rightPad = Logic.CatalogTextLeft(),
+	}
+	local rowInner = width - spec.rowLeft - spec.rightPad
+	if rowInner < 40 then
+		rowInner = width
+		spec.headerLeft = 0
+		spec.rowLeft = 0
+		spec.titleLeft = 0
+		spec.rightPad = 0
 	end
+	spec.headerInner = width - spec.headerLeft - spec.rightPad
+	local y = Logic.CATALOG_PAGE.firstY
+	local headerIndex = 0
+	local buttonIndex = 0
+	local function nextHeader()
+		headerIndex = headerIndex + 1
+		local header = LB.catalogHeaders[headerIndex]
+		if not header then
+			header = NewHeader(content)
+			LB.catalogHeaders[headerIndex] = header
+		end
+		return header
+	end
+	local function finish()
+		local i
+		for i = headerIndex + 1, #LB.catalogHeaders do
+			LB.catalogHeaders[i]:Hide()
+		end
+		for i = buttonIndex + 1, #LB.catalogButtons do
+			LB.catalogButtons[i]:Hide()
+		end
+		content:SetSize(width, math.max(y + 12, 40))
+		page.scroll:SetVerticalScroll(0)
+	end
+	if LB.catalogView == "help" then
+		LB.settingsHeader:Hide()
+		local header = nextHeader()
+		PlaceHeader(header, content, spec, y, plainH, "Help")
+		HideSectionScale(header)
+		y = LB.LayoutHelpPage(content, spec.rowLeft, rowInner, y + plainH + yGap)
+		finish()
+		return
+	end
+	LB.HideHelpPage()
 	local minCol = 178
-	local columns = math.floor((inner + xPad) / (minCol + xPad))
+	local columns = math.floor((rowInner + xPad) / (minCol + xPad))
 	if columns < 1 then
 		columns = 1
 	end
-	local colWidth = math.floor((inner - xPad * (columns - 1)) / columns)
+	local colWidth = math.floor((rowInner - xPad * (columns - 1)) / columns)
 	if colWidth < 40 then
 		colWidth = 40
 	end
 	local sections = Logic.BuildSections(SkillLines(), SpellAt, Logic.VisibleLaunchers(BindingExists), items, Logic.Macros(_G), Logic.PetBookEntries(C_SpellBook, Enum, PetHasSpellbook))
-	local y = 0
+	sections = Logic.FilterSections(sections, LB.SearchText and LB.SearchText())
+	y = y + LayoutSettings(LB.settingsHeader, content, spec, y) + yGap
 	local col = 0
-	local buttonIndex = 0
-	local headerIndex = 0
 	local s
 	for s = 1, #sections do
 		local section = sections[s]
@@ -678,42 +978,14 @@ local function LayoutCatalog(items, scheduleItems)
 			y = y + rowH + yGap
 			col = 0
 		end
-		headerIndex = headerIndex + 1
-		local header = LB.catalogHeaders[headerIndex]
-		if not header then
-			header = CreateFrame("Frame", nil, content)
-			header.backplate = header:CreateTexture(nil, "BACKGROUND")
-			header.backplate:SetAtlas("spellbook-list-backplate", true)
-			header.backplate:SetAlpha(0.65)
-			header.backplate:SetAllPoints(header)
-			header.text = header:CreateFontString(nil, "OVERLAY", "SystemFont_Huge2")
-			header.text:SetJustifyH("LEFT")
-			header.divider = header:CreateTexture(nil, "ARTWORK")
-			header.divider:SetAtlas("spellbook-divider", true)
-			header.divider:SetHeight(Logic.SECTION_STACK.divider)
-			header.divider:SetPoint("BOTTOMLEFT", header, "BOTTOMLEFT", 0, 0)
-			header.divider:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
-			LB.catalogHeaders[headerIndex] = header
-		end
-		headerH = Logic.CatalogHeaderHeight(section.title)
-		header:ClearAllPoints()
-		header:SetSize(inner, headerH)
-		header:SetPoint("TOPLEFT", content, "TOPLEFT", pad, -y)
-		header.text:ClearAllPoints()
-		local textY = -4
-		if section.title == Logic.SECTION_ORDER[1] then
-			textY = Logic.SectionHeaderInset()
-		end
-		header.text:SetPoint("TOPLEFT", header, "TOPLEFT", pad, textY)
-		header.text:SetText(section.title)
-		ApplySpellbookColor(header.text)
+		local header = nextHeader()
+		local headerH = Logic.CatalogHeaderHeight(section.title)
+		PlaceHeader(header, content, spec, y, headerH, section.title)
 		if section.title == Logic.SECTION_ORDER[1] then
 			ShowSectionScale(header)
 		else
-			header.text:SetPoint("TOPRIGHT", header, "TOPRIGHT", -pad, textY)
 			HideSectionScale(header)
 		end
-		header:Show()
 		y = y + headerH + yGap
 		local e
 		for e = 1, #section.entries do
@@ -725,56 +997,16 @@ local function LayoutCatalog(items, scheduleItems)
 			buttonIndex = buttonIndex + 1
 			local row = LB.catalogButtons[buttonIndex]
 			if not row then
-				row = CreateFrame("Button", nil, content)
-				row.lbCatalog = true
-				row.backplate = row:CreateTexture(nil, "BACKGROUND")
-				row.backplate:SetAtlas("spellbook-item-backplate", true)
-				row.backplate:SetAlpha(0.33)
-				row.backplate:SetPoint("CENTER", row, "CENTER", 5, -5)
-				row.icon = row:CreateTexture(nil, "ARTWORK")
-				row.icon:SetSize(40, 40)
-				row.icon:SetPoint("LEFT", row, "LEFT", 0, 0)
-				row.nameText = row:CreateFontString(nil, "OVERLAY", "SystemFont_Large")
-				row.nameText:SetJustifyH("LEFT")
-				row:RegisterForDrag("LeftButton")
-				row:SetScript("OnDragStart", function(self)
-					local dragged = self.entry
-					if not dragged then
-						return
-					end
-					if dragged.kind == "item" or dragged.kind == "macro" then
-						LB.dragSpell = { kind = dragged.kind, payload = dragged.payload, icon = dragged.icon }
-						ShowSpellGhost(dragged.icon)
-						ShowReceive(true)
-						return
-					end
-					if dragged.kind == "spell" or dragged.kind == "pet" then
-						if InCombatLockdown() then
-							LB.Say("Cannot pick up a spell in combat.")
-							return
-						end
-						LB.dragSpell = { kind = dragged.kind, payload = dragged.payload, icon = dragged.icon, petCast = dragged.petCast, bookSlot = dragged.bookSlot, keepRank = dragged.keepRank }
-						ShowSpellGhost(dragged.icon)
-						ShowReceive(true)
-						return
-					end
-					BeginLauncherDrag(dragged)
-				end)
-				row:SetScript("OnEnter", function(self)
-					LB.ShowTip(self, self.entry)
-				end)
-				row:SetScript("OnLeave", function()
-					if type(GameTooltip) == "table" and type(GameTooltip.Hide) == "function" then
-						GameTooltip:Hide()
-					end
-				end)
+				row = NewCatalogRow(content)
 				LB.catalogButtons[buttonIndex] = row
 			end
 			local shownRank = ApplyHeldRank(entry)
 			row.entry = entry
 			row:SetSize(colWidth, rowH)
-			row.icon:SetSize(40, 40)
-			PaintCatalogIcon(row.icon, entry)
+			row.backplate:SetAlpha(ROW_REST_ALPHA)
+			row.hover:Hide()
+			FrameCatalogIcon(row, entry.kind ~= "launcher")
+			PaintCatalogIcon(row.icon, entry, row.plate)
 			row.nameText:SetText(entry.name or "")
 			ApplySpellbookColor(row.nameText)
 			row.nameText:ClearAllPoints()
@@ -802,7 +1034,7 @@ local function LayoutCatalog(items, scheduleItems)
 				end
 			end
 			row:ClearAllPoints()
-			row:SetPoint("TOPLEFT", content, "TOPLEFT", pad + col * (colWidth + xPad), -y)
+			row:SetPoint("TOPLEFT", content, "TOPLEFT", spec.rowLeft + col * (colWidth + xPad), -y)
 			row:Show()
 			col = col + 1
 		end
@@ -810,15 +1042,7 @@ local function LayoutCatalog(items, scheduleItems)
 	if col ~= 0 then
 		y = y + rowH
 	end
-	local i
-	for i = headerIndex + 1, #LB.catalogHeaders do
-		LB.catalogHeaders[i]:Hide()
-	end
-	for i = buttonIndex + 1, #LB.catalogButtons do
-		LB.catalogButtons[i]:Hide()
-	end
-	content:SetSize(width, math.max(y + 12, 40))
-	page.scroll:SetVerticalScroll(0)
+	finish()
 	if not scheduleItems or LB.itemScanQueued then
 		return
 	end
@@ -830,6 +1054,7 @@ local function LayoutCatalog(items, scheduleItems)
 		end
 		local ok, scanned = pcall(BagConsumables)
 		if ok and type(scanned) == "table" then
+			LB.catalogItems = scanned
 			LayoutCatalog(scanned, false)
 		end
 	end
@@ -889,9 +1114,9 @@ local function AttachCatalogScroll(page)
 	scroll:SetScrollChild(content)
 	scroll:SetPoint("TOPLEFT", page, "TOPLEFT", 0, 0)
 	scroll:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -4, 0)
-	local bar = CreateFrame("EventFrame", "LooseButtonsCatalogBar", page, "WowTrimScrollBar")
-	bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 28, 0)
-	bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 28, 0)
+	local bar = CreateFrame("EventFrame", "LooseButtonsCatalogBar", page, Logic.CATALOG_BAR.template)
+	bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", Logic.CATALOG_BAR.x, 0)
+	bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", Logic.CATALOG_BAR.x, 0)
 	ScrollUtil.InitScrollFrameWithScrollBar(scroll, bar)
 	page.scroll = scroll
 	page.content = content
@@ -946,6 +1171,10 @@ local function RefreshLockButton()
 	end
 	PaintStripButton(button, art)
 	CenterLockIcon(button)
+	if type(button.Icon) == "table" and button.Icon.SetTexCoord then
+		local crop = Logic.LOCK_CROP
+		button.Icon:SetTexCoord(crop, 1 - crop, crop, 1 - crop)
+	end
 	if button.SetButtonState then
 		if locked then
 			button:SetButtonState("PUSHED", true)
@@ -966,10 +1195,6 @@ local function ToggleLock()
 	local live = LB.DB()
 	live.locked = Logic.NormalizeLocked(not LB.IsLocked())
 	RefreshLockButton()
-end
-
-local function LayoutLabel()
-	return Logic.Layouts.ActiveName(LB.Account(), LB.CharKey()) or Logic.BLANK_LAYOUT
 end
 
 local function RefreshLayoutChrome()
@@ -993,32 +1218,6 @@ local function RefreshLayoutChrome()
 	end
 end
 
-local DROP_W = 170
-local DROP_H = 22
-local STACK_GAP = 2
-local STACK_LIFT = (DROP_H + STACK_GAP) / 2
-local SLIDER_W = 176
-local SLIDER_H = 40
-local SLIDER_NUDGE = 4
-local STRIP_H = DROP_H * 2 + STACK_GAP + 8
-local SUBBAR_NUDGE = 6
-local PARCHMENT_CAP = "GarrMission_ParchmentHeader-End"
-local PARCHMENT_MID = "_GarrMission_ParchmentHeader-Mid"
-local PARCHMENT_OVERLAP = 35
-
-local function EnsureLayoutControl(strip, theme)
-	local dropdown = CreateFrame("DropdownButton", "LooseButtonsLayout", strip, "WowStyle1DropdownTemplate")
-	dropdown:SetSize(DROP_W, DROP_H)
-	dropdown:SetPoint("TOPLEFT", theme, "BOTTOMLEFT", 0, -STACK_GAP)
-	if dropdown.SetDefaultText then
-		dropdown:SetDefaultText(LayoutLabel())
-	end
-	if dropdown.SetupMenu then
-		dropdown:SetupMenu(LayoutMenu)
-	end
-	LB.layoutDropdown = dropdown
-end
-
 local PAGE_CLICK = {
 	clear = LB.ConfirmClear,
 	edit = LB.ToggleBind,
@@ -1026,125 +1225,58 @@ local PAGE_CLICK = {
 	help = ToggleHelp,
 }
 
-local function AttachParchmentRibbon(strip)
-	local left = strip:CreateTexture(nil, "BACKGROUND", nil, 1)
-	left:SetAtlas(PARCHMENT_CAP, true)
-	left:SetHeight(STRIP_H)
-	left:SetPoint("LEFT", strip, "LEFT", 0, 0)
-	local right = strip:CreateTexture(nil, "BACKGROUND", nil, 1)
-	right:SetAtlas(PARCHMENT_CAP, true)
-	right:SetHeight(STRIP_H)
-	right:SetTexCoord(1, 0, 0, 1)
-	right:SetPoint("RIGHT", strip, "RIGHT", 0, 0)
-	local mid = strip:CreateTexture(nil, "BACKGROUND", nil, 0)
-	mid:SetAtlas(PARCHMENT_MID, true)
-	mid:SetHorizTile(true)
-	mid:SetHeight(STRIP_H)
-	mid:SetPoint("LEFT", left, "RIGHT", -PARCHMENT_OVERLAP, 0)
-	mid:SetPoint("RIGHT", right, "LEFT", PARCHMENT_OVERLAP, 0)
-end
+local STRIP_GAP = 6
+local HELP_GAP = 8
+local HELP_SIZE = 16
 
 local function EnsureSubBar(book)
+	local size = Logic.PAGE_BUTTON
 	local strip = CreateFrame("Frame", nil, book)
-	strip:SetHeight(STRIP_H)
 	strip:Hide()
-	AttachParchmentRibbon(strip)
 	local previous
+	local squares = 0
 	local i
 	for i = 1, #Logic.PAGE_COMMANDS do
 		local spec = Logic.PAGE_COMMANDS[i]
-		local buttonName = nil
-		if spec.id == "help" then
-			buttonName = "LooseButtonsHelpButton"
-		end
-		local button = CreateFrame("Button", buttonName, strip, "SquareIconButtonTemplate")
-		button:SetSize(32, 32)
-		if previous then
-			button:SetPoint("LEFT", previous, "RIGHT", 6, 0)
-		else
-			button:SetPoint("LEFT", strip, "LEFT", 8, 0)
-		end
-		if spec.icon and button.SetIcon then
-			button:SetIcon(spec.icon)
-		end
-		PaintStripButton(button, spec.icon)
-		if spec.id == "clear" then
-			CenterStripIcon(button)
-		end
-		if spec.atlas and button.icon and button.icon.SetAtlas then
-			button.icon:SetAtlas("UI-HUD-MicroMenu-" .. spec.atlas .. "-Up")
-			button.icon:Show()
-		end
 		local run = PAGE_CLICK[spec.id]
-		button:SetOnClickHandler(function()
+		local function click()
 			if run then
 				run()
 			end
-		end)
-		button:SetTooltipInfo(spec.title, spec.text)
-		if spec.id == "lock" then
-			LB.lockButton = button
-			RefreshLockButton()
+		end
+		local button
+		if spec.info then
+			button = CreateFrame("Button", "LooseButtonsHelpButton", strip, "UIPanelInfoButton")
+			button:SetSize(HELP_SIZE, HELP_SIZE)
+			button:SetPoint("LEFT", previous, "RIGHT", HELP_GAP, 0)
+			button:SetScript("OnClick", click)
+			AttachTip(button, spec)
+		else
+			squares = squares + 1
+			button = CreateFrame("Button", nil, strip, "SquareIconButtonTemplate")
+			button:SetSize(size, size)
+			if previous then
+				button:SetPoint("LEFT", previous, "RIGHT", STRIP_GAP, 0)
+			else
+				button:SetPoint("LEFT", strip, "LEFT", 0, 0)
+			end
+			if spec.icon and button.SetIcon then
+				button:SetIcon(spec.icon)
+			end
+			PaintStripButton(button, spec.icon)
+			if spec.id == "clear" then
+				CenterStripIcon(button)
+			end
+			button:SetOnClickHandler(click)
+			button:SetTooltipInfo(spec.title, spec.text)
+			if spec.id == "lock" then
+				LB.lockButton = button
+				RefreshLockButton()
+			end
 		end
 		previous = button
 	end
-	local dropdown = CreateFrame("DropdownButton", "LooseButtonsTheme", strip, "WowStyle1DropdownTemplate")
-	dropdown:SetSize(DROP_W, DROP_H)
-	if previous then
-		dropdown:SetPoint("LEFT", previous, "RIGHT", 8, STACK_LIFT)
-	else
-		dropdown:SetPoint("LEFT", strip, "LEFT", 8, STACK_LIFT)
-	end
-	local theme = Logic.THEMES[LB.CurrentTheme()]
-	if dropdown.SetDefaultText then
-		dropdown:SetDefaultText(theme.title)
-	end
-	if MenuUtil and MenuUtil.CreateRadioMenu then
-		local rows = {}
-		local i
-		for i = 1, #Logic.THEME_ORDER do
-			local id = Logic.THEME_ORDER[i]
-			rows[i] = { Logic.THEMES[id].title, id }
-		end
-		MenuUtil.CreateRadioMenu(dropdown, function(id)
-			return LB.CurrentTheme() == id
-		end, function(id)
-			LB.ApplyTheme(id)
-		end, unpack(rows))
-	end
-	LB.themeDropdown = dropdown
-	local slider = CreateFrame("Frame", "LooseButtonsScale", strip, "MinimalSliderWithSteppersTemplate")
-	slider:SetSize(SLIDER_W, SLIDER_H)
-	slider:SetPoint("LEFT", dropdown, "RIGHT", 12, -STACK_LIFT - SLIDER_NUDGE)
-	local label = MinimalSliderWithSteppersMixin and MinimalSliderWithSteppersMixin.Label
-	if slider.Init and label then
-		local formatters = {}
-		formatters[label.Top] = function(value)
-			if type(value) ~= "number" then
-				return ""
-			end
-			return math.floor(value + 0.5) .. "%"
-		end
-		slider:Init(Logic.ScalePercent(LB.CurrentScale()), Logic.SCALE_MIN_PERCENT, Logic.SCALE_MAX_PERCENT, Logic.SCALE_STEPS, formatters)
-	end
-	local function OnScaleChanged(_, value)
-		if LB.scaleWriting then
-			return
-		end
-		local percent = Logic.ScaleFromSlider(slider, value)
-		if type(percent) ~= "number" then
-			return
-		end
-		LB.ApplyScale(percent / 100)
-	end
-	local inner = slider.Slider
-	if type(inner) == "table" and type(inner.HookScript) == "function" then
-		inner:HookScript("OnValueChanged", OnScaleChanged)
-	elseif type(slider.HookScript) == "function" then
-		slider:HookScript("OnValueChanged", OnScaleChanged)
-	end
-	LB.scaleSlider = slider
-	EnsureLayoutControl(strip, dropdown)
+	strip:SetSize(squares * size + (squares - 1) * STRIP_GAP + HELP_GAP + HELP_SIZE, size)
 	LB.subbar = strip
 end
 
@@ -1154,62 +1286,13 @@ local function AnchorSubBar(book)
 		return
 	end
 	strip:ClearAllPoints()
-	local ribbonRight = -(80 + 4 + Logic.CatalogTextLeft())
-	local tabs = book.CategoryTabSystem
-	if tabs then
-		strip:SetPoint("TOPLEFT", tabs, "BOTTOMLEFT", 16, -4 - SUBBAR_NUDGE)
-		strip:SetPoint("TOPRIGHT", book, "TOPRIGHT", ribbonRight, -55 - SUBBAR_NUDGE)
-	else
-		strip:SetPoint("TOPLEFT", book, "TOPLEFT", 86, -55 - SUBBAR_NUDGE)
-		strip:SetPoint("TOPRIGHT", book, "TOPRIGHT", ribbonRight, -55 - SUBBAR_NUDGE)
-	end
+	local spec = Logic.CATALOG_PAGE
+	strip:SetPoint("BOTTOMLEFT", book, "BOTTOMLEFT", spec.left + spec.rowLeft, spec.stripBottom)
 	local level = 0
 	if book.GetFrameLevel then
 		level = book:GetFrameLevel() or 0
 	end
 	strip:SetFrameLevel(level + 40)
-	local span = 0
-	if book.GetWidth then
-		local bookW = book:GetWidth()
-		if type(bookW) == "number" and bookW >= 40 then
-			span = bookW - 86 + ribbonRight
-		end
-	end
-	if span < 40 and strip.GetWidth then
-		span = strip:GetWidth() or 0
-	end
-	if span < 40 then
-		return
-	end
-	local buttons = #Logic.PAGE_COMMANDS
-	local fixed = 8 + buttons * 32 + (buttons - 1) * 6 + 8 + 12 + 8
-	local room = span - fixed
-	local dropW = DROP_W
-	local sliderW = SLIDER_W
-	local pair = dropW + sliderW
-	if room < pair then
-		if room < 192 then
-			room = 192
-		end
-		dropW = math.floor(room * DROP_W / pair)
-		if dropW < 96 then
-			dropW = 96
-		end
-		sliderW = room - dropW
-		if sliderW < 96 then
-			sliderW = 96
-			dropW = room - sliderW
-		end
-	end
-	if LB.themeDropdown then
-		LB.themeDropdown:SetSize(dropW, DROP_H)
-	end
-	if LB.layoutDropdown then
-		LB.layoutDropdown:SetSize(dropW, DROP_H)
-	end
-	if LB.scaleSlider then
-		LB.scaleSlider:SetSize(sliderW, SLIDER_H)
-	end
 end
 
 local function EnsurePage(book)
@@ -1220,6 +1303,8 @@ local function EnsurePage(book)
 	page:Hide()
 	EnsureSubBar(book)
 	AttachCatalogScroll(page)
+	LB.settingsHeader = NewHeader(page.content)
+	EnsureSettings(LB.settingsHeader)
 	page:SetScript("OnSizeChanged", function(self)
 		if not self:IsShown() then
 			return
@@ -1231,7 +1316,6 @@ local function EnsurePage(book)
 		if catalogWidth and type(width) == "number" and math.abs(width - catalogWidth) < 1 then
 			return
 		end
-		AnchorSubBar(book)
 		LayoutCatalog(nil, true)
 	end)
 	LB.page = page
@@ -1243,8 +1327,9 @@ local function AnchorPage(book)
 		return
 	end
 	page:ClearAllPoints()
-	page:SetPoint("TOPLEFT", book, "TOPLEFT", 100, -120)
-	page:SetPoint("BOTTOMRIGHT", book, "BOTTOMRIGHT", -80, 48)
+	local spec = Logic.CATALOG_PAGE
+	page:SetPoint("TOPLEFT", book, "TOPLEFT", spec.left, spec.top)
+	page:SetPoint("BOTTOMRIGHT", book, "BOTTOMRIGHT", spec.right, spec.bottom)
 	local level = 0
 	if book and book.GetFrameLevel then
 		level = book:GetFrameLevel() or 0
@@ -1287,6 +1372,29 @@ local function CatalogUp()
 	end
 	return false
 end
+
+-- IsShown stays true on the page after the book closes. IsVisible follows the book.
+function LB.CatalogVisible()
+	return LB.page ~= nil and LB.page:IsVisible() and true or false
+end
+
+function LB.SetCatalogView(view)
+	LB.catalogView = view
+	if not LB.page or not LB.page:IsShown() then
+		return
+	end
+	LayoutCatalog(LB.catalogItems, false)
+	if view ~= "help" or not C_Timer or not C_Timer.After then
+		return
+	end
+	-- Wrapped text reports its height one frame late.
+	C_Timer.After(0, function()
+		if LB.catalogView == "help" and LB.CatalogVisible() then
+			LayoutCatalog(LB.catalogItems, false)
+		end
+	end)
+end
+
 LB.CatalogUp, LB.ClearBlizzardPage, LB.FinishDrop, LB.HideCatalog = CatalogUp, ClearBlizzardPage, FinishDrop, HideCatalog
 LB.HideLooseChrome, LB.HideReceive, LB.LayoutCatalog = HideLooseChrome, HideReceive, LayoutCatalog
 LB.RefreshLayoutChrome, LB.ShowCatalog, LB.UpdateCooldowns, LB.receive = RefreshLayoutChrome, ShowCatalog, UpdateCooldowns, receive
